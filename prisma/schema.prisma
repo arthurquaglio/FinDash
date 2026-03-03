@@ -1,0 +1,58 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 1. Tabela de Tipos (Terá apenas 3 registros fixos: Receita, Gasto, Investimento)
+model TransactionType {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  transactions Transaction[] // Relação 1:N com Transações
+}
+
+// 2. Tabela de Categorias (Pode ser populada pelo usuário)
+model Category {
+  id           String        @id @default(uuid())
+  name         String
+  color        String?       // Ex: "#10b981" para usar nos gráficos
+  icon         String?       // Ex: "shopping-cart" para usar na UI
+  transactions Transaction[] // Relação 1:N com Transações
+  budget       Budget?
+}
+
+// 3. Tabela Principal (Agora mais limpa e referenciada)
+model Transaction {
+  id         String   @id @default(uuid())
+  name       String
+  value      Float
+  date       DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Foreign Keys (Chaves Estrangeiras)
+  typeId     String
+  type       TransactionType @relation(fields: [typeId], references: [id])
+
+  categoryId String
+  category   Category        @relation(fields: [categoryId], references: [id])
+}
+
+model Budget {
+  id         String   @id @default(uuid())
+  amount     Float    // Valor limite da meta (ex: 500.00)
+  categoryId String   @unique // Uma meta por categoria
+  category   Category @relation(fields: [categoryId], references: [id])
+  updatedAt  DateTime @updatedAt
+}
