@@ -28,8 +28,9 @@ export async function addTransaction(formData: FormData) {
             date: new Date(`${dateString}T12:00:00Z`), // Força o horário do meio-dia para evitar bugs de fuso horário
             typeId,
             categoryId,
-        },
-    });
+            userId: "usuario-casal-unico" // <-- Adicione isso! (pode ser qualquer string)
+        }
+    })
 
     // 4. Diz ao Next.js para recarregar os dados da página inicial
     revalidatePath("/");
@@ -74,11 +75,18 @@ export async function updateTransaction(id: string, formData: FormData) {
 
 export async function upsertBudget(categoryId: string, amount: number) {
     await prisma.budget.upsert({
-        where: { categoryId },
+        where: {
+            // Em vez de passar só o categoryId, passamos a combinação que o Prisma exige:
+            categoryId_userId: {
+                categoryId: categoryId,
+                userId: "usuario-casal-unico" // O mesmo ID que você usou na Transaction
+            }
+        },
         update: { amount },
         create: {
             categoryId,
             amount,
+            userId: "usuario-casal-unico", // Não esqueça de colocar no create também!
         },
     });
 
