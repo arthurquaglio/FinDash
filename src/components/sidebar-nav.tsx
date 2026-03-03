@@ -8,7 +8,6 @@ import { Home, Receipt, PieChart } from "lucide-react"; // Adicione ou mude os �
 const navItems = [
     { name: "Início", href: "/", icon: Home },
     { name: "Gastos", href: "/gastos", icon: Receipt },
-    { name: "Orçamentos", href: "/orcamentos", icon: PieChart },
 ];
 
 export function SidebarNav() {
