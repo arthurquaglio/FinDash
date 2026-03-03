@@ -3,6 +3,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
+import {identifyCategory} from "@/lib/categorizer";
 
 export async function addTransaction(formData: FormData) {
     // 1. Extrai os dados que o formulário enviou
@@ -82,4 +83,82 @@ export async function upsertBudget(categoryId: string, amount: number) {
     });
 
     revalidatePath("/");
+}
+
+export async function importTransactions(transactions: any[]) {
+    // 1. Descobrir quem está importando
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    // Se estiver na "Visão do Casal" (sem ID definido), bloqueia a importação
+    if (!activeProfileId) {
+        throw new Error("Por favor, selecione um perfil (Arthur ou Flávia) no menu lateral antes de importar o extrato.");
+    }
+
+    const types = await prisma.transactionType.findMany();
+    const allCategories = await prisma.category.findMany();
+
+    const defaultCategory = allCategories[0];
+    const gastoType = types.find(t => t.name === "Gasto");
+    const receitaType = types.find(t => t.name === "Receita");
+
+    if (!defaultCategory || !gastoType || !receitaType) {
+        throw new Error("Certifique-se de rodar o SEED antes de importar.");
+    }
+
+    // 2. Prepara os dados incluindo o DONO da transação (userId)
+    const dataToSave = transactions.map(t => {
+        const suggestedCategoryName = identifyCategory(t.name);
+
+        const category = allCategories.find(
+            c => c.name.toLowerCase() === suggestedCategoryName.toLowerCase()
+        );
+
+        const isNegative = t.value < 0;
+
+        return {
+            name: t.name,
+            value: t.value,
+            date: t.date,
+            categoryId: category ? category.id : defaultCategory.id,
+            typeId: isNegative ? gastoType.id : receitaType.id,
+            userId: activeProfileId, // <-- O SEGREDO ESTÁ AQUI!
+        };
+    });
+
+    // 3. Tenta inserir no banco
+    try {
+        await prisma.transaction.createMany({
+            data: dataToSave,
+            skipDuplicates: true,
+        });
+    } catch (error) {
+        console.error("Erro no Prisma:", error);
+        throw new Error("Erro ao salvar no banco. Verifique se os dados estão corretos.");
+    }
+
+    // 4. Atualiza as telas
+    revalidatePath("/");
+    revalidatePath("/gastos");
+}
+
+export async function updateTransactionCategory(transactionId: string, categoryId: string) {
+    await prisma.transaction.update({
+        where: { id: transactionId },
+        data: { categoryId }
+    });
+    revalidatePath("/gastos");
+    revalidatePath("/");
+}
+
+import { cookies } from "next/headers";
+
+export async function setActiveProfile(userId: string) {
+    if (userId === "casal") {
+        // Se escolheu "Casal", apagamos o cookie para ver tudo
+        (await cookies()).delete("activeProfileId");
+    } else {
+        // Se escolheu Arthur ou Flávia, salvamos o ID deles
+        (await cookies()).set("activeProfileId", userId, { path: "/" });
+    }
 }

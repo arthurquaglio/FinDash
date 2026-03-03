@@ -8,23 +8,33 @@ import { TransactionModal } from "@/components/ui/transaction-modal";
 import { DashboardCharts } from "@/components/ui/dashboard-charts";
 import Link from "next/link";
 import { BudgetSidebar } from "@/components/budget-sidebar";
+import { cookies } from "next/headers"; // <-- 1. IMPORTANTE: Importar cookies
 
 export default async function FinanceDashboard() {
-  // 1. Buscas iniciais no Banco de Dados
+  // 2. LER O PERFIL ATUAL
+  const cookieStore = await cookies();
+  const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+  // 3. CRIAR O FILTRO (Se for casal, o objeto fica vazio e o prisma ignora. Se for individual, filtra pelo ID)
+  const userFilter = activeProfileId ? { userId: activeProfileId } : {};
+
+  // 1. Buscas iniciais no Banco de Dados (AGORA COM FILTRO)
   const allBudgets = await prisma.budget.findMany({
+    where: { ...userFilter }, // <-- Aplica o filtro aqui
     include: { category: true }
   });
 
   const types = await prisma.transactionType.findMany();
 
   const allCategories = await prisma.category.findMany({
-    include: { budget: true }
+    include: { budgets: true }
   });
 
   const transactions = await prisma.transaction.findMany({
+    where: { ...userFilter }, // <-- Aplica o filtro aqui
     include: { type: true, category: true },
     orderBy: { date: 'desc' },
-    take: 10,
+    take: 10, // Pega os 10 últimos lançamentos
   });
 
   // 2. Insights: Cálculos do mês atual
@@ -33,6 +43,7 @@ export default async function FinanceDashboard() {
 
   const monthlyTransactions = await prisma.transaction.findMany({
     where: {
+      ...userFilter, // <-- Aplica o filtro aqui
       date: { gte: firstDayMonth },
       type: { name: "Gasto" }
     }
@@ -44,11 +55,12 @@ export default async function FinanceDashboard() {
           (Math.abs(prev.value) > Math.abs(curr.value)) ? prev : curr)
       : null;
 
-  // 3. Status das Metas (Progresso) com tipagem explícita para evitar erro 'b'
+  // 3. Status das Metas (Progresso)
   const budgetStatus = await Promise.all(
       allBudgets.map(async (b: any) => {
         const spent = await prisma.transaction.aggregate({
           where: {
+            ...userFilter, // <-- Aplica o filtro aqui também!
             categoryId: b.categoryId,
             date: { gte: firstDayMonth },
             value: { lt: 0 }
@@ -67,7 +79,8 @@ export default async function FinanceDashboard() {
   );
 
   // 4. Cálculos de Resumo Geral
-  const totalBalance = transactions.reduce((acc, curr) => acc + curr.value, 0);
+  const totalBalance = transactions
+      .reduce((acc, curr) => acc + curr.value, 0);
   const monthlyExpenses = transactions
       .filter(t => t.type.name === "Gasto")
       .reduce((acc, curr) => acc + Math.abs(curr.value), 0);
@@ -83,8 +96,6 @@ export default async function FinanceDashboard() {
 
   return (
       <div className="flex min-h-screen bg-zinc-950 text-zinc-50 font-sans">
-
-
         {/* Conteúdo Principal */}
         <main className="flex-1 p-8 overflow-y-auto">
           <header className="flex justify-between items-start mb-8">

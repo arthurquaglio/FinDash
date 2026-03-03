@@ -15,44 +15,59 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 1. Tabela de Tipos (Terá apenas 3 registros fixos: Receita, Gasto, Investimento)
-model TransactionType {
+// ... generator e datasource ...
+
+// 1. NOVO: Modelo de Usuário
+model User {
   id           String        @id @default(uuid())
-  name         String        @unique
-  transactions Transaction[] // Relação 1:N com Transações
+  name         String
+  transactions Transaction[]
+  budgets      Budget[]
 }
 
-// 2. Tabela de Categorias (Pode ser populada pelo usuário)
+// Modelos Globais (Compartilhados entre vocês dois)
 model Category {
   id           String        @id @default(uuid())
   name         String
-  color        String?       // Ex: "#10b981" para usar nos gráficos
-  icon         String?       // Ex: "shopping-cart" para usar na UI
-  transactions Transaction[] // Relação 1:N com Transações
-  budget       Budget?
+  transactions Transaction[]
+  budgets      Budget[]
 }
 
-// 3. Tabela Principal (Agora mais limpa e referenciada)
+model TransactionType {
+  id           String        @id @default(uuid())
+  name         String
+  transactions Transaction[]
+}
+
+// 2. ATUALIZADO: Adicionando o Dono da Transação
 model Transaction {
   id         String   @id @default(uuid())
   name       String
   value      Float
   date       DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
 
-  // Foreign Keys (Chaves Estrangeiras)
+  // Relações existentes
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
   typeId     String
   type       TransactionType @relation(fields: [typeId], references: [id])
 
-  categoryId String
-  category   Category        @relation(fields: [categoryId], references: [id])
+  // NOVO: Quem fez essa transação?
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
 }
 
+// 3. ATUALIZADO: Adicionando o Dono da Meta
 model Budget {
   id         String   @id @default(uuid())
-  amount     Float    // Valor limite da meta (ex: 500.00)
-  categoryId String   @unique // Uma meta por categoria
+  amount     Float
+
+  categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
-  updatedAt  DateTime @updatedAt
+
+  // NOVO: De quem é essa meta? (Assim vocês podem ter metas diferentes para a mesma categoria)
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([categoryId, userId]) // Garante que uma pessoa só tem uma meta por categoria
 }

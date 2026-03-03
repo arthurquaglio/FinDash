@@ -1,47 +1,55 @@
-// prisma/seed.ts
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { PrismaClient } from '@prisma/client'
+const prisma = new PrismaClient()
 
 async function main() {
-    console.log('Iniciando o seed de dados...');
+    // 1. Criar os Usuários
+    // @ts-ignore
+    const arthur = await prisma.user.create({
+        data: { name: 'Arthur' },
+    })
 
-    // 1. Criar os Tipos Fixos (usamos upsert para não duplicar se rodar 2x)
-    const gasto = await prisma.transactionType.upsert({
-        where: { name: 'Gasto' }, update: {}, create: { name: 'Gasto' },
-    });
-    const receita = await prisma.transactionType.upsert({
-        where: { name: 'Receita' }, update: {}, create: { name: 'Receita' },
-    });
-    const investimento = await prisma.transactionType.upsert({
-        where: { name: 'Investimento' }, update: {}, create: { name: 'Investimento' },
-    });
+    // @ts-ignore
+    const flavia = await prisma.user.create({
+        data: { name: 'Flávia' }, // Troque pelo nome dela!
+    })
 
-    // 2. Criar as Categorias Padrão
+    // 2. Criar os Tipos de Transação (se já não existirem no seu seed)
+    await prisma.transactionType.createMany({
+        data: [
+            { name: 'Gasto' },
+            { name: 'Receita' },
+            { name: 'Investimento' }
+        ],
+        skipDuplicates: true,
+    })
+
+    // 3. Criar as Categorias (sua lista atualizada)
     const categorias = [
-        { name: 'Alimentação', color: '#10b981', icon: 'shopping-cart' },
-        { name: 'Moradia', color: '#3b82f6', icon: 'home' },
-        { name: 'Salário', color: '#8b5cf6', icon: 'briefcase' },
-        { name: 'Renda Fixa', color: '#f59e0b', icon: 'trending-up' },
-        { name: 'Lazer', color: '#ec4899', icon: 'coffee' }
-    ];
+        { name: 'Alimentação' },
+        { name: 'Moradia' },
+        { name: 'Salário' },
+        { name: 'Renda Fixa' },
+        { name: 'Lazer' },
+        { name: 'Educação' },
+        { name: 'Academia' },
+        { name: 'Saúde' },
+        { name: 'Transporte' },
+        { name: 'Outros' }
+    ]
 
-    for (const cat of categorias) {
-        // Busca se já existe para evitar erro de duplicidade
-        const existe = await prisma.category.findFirst({ where: { name: cat.name } });
-        if (!existe) {
-            await prisma.category.create({ data: cat });
-        }
-    }
+    await prisma.category.createMany({
+        data: categorias,
+        skipDuplicates: true,
+    })
 
-    console.log('Seed finalizado com sucesso!');
+    console.log('Seed executado com sucesso! Usuários e Categorias criados.')
 }
 
 main()
     .catch((e) => {
-        console.error(e);
-        process.exit(1);
+        console.error(e)
+        process.exit(1)
     })
     .finally(async () => {
-        await prisma.$disconnect();
-    });
+        await prisma.$disconnect()
+    })
