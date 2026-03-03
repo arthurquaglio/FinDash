@@ -101,7 +101,7 @@ export default async function FinanceDashboard() {
           <header className="flex justify-between items-start mb-8">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Visão Geral</h1>
-              <p className="text-sm text-zinc-500 mt-1">Sincronizado com seu banco de dados local.</p>
+              <p className="text-sm text-zinc-500 mt-1">Nossas finanças bem organizadas para o futuro.</p>
             </div>
             <div className="flex gap-3">
               <BudgetSidebar categories={allCategories} budgets={allBudgets}/>
