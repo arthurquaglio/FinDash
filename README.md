@@ -34,3 +34,28 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Neon (Postgres) — Quick Setup
+
+ - **Create a Neon project:** Sign up at https://neon.tech and create a new project (Postgres).
+ - **Get connection strings:** In the Neon dashboard, copy the main connection string and (optionally) create a separate shadow DB or branch for Prisma migrations.
+ - **Set env vars locally:** Add `DATABASE_URL` and `SHADOW_DATABASE_URL` to your `.env` (or use the placeholders in `.env.example`).
+ - **Apply Prisma schema:** For development you can run:
+
+```bash
+# push schema without creating migrations
+npx prisma db push --preview-feature
+
+# or, to use migrations (requires a shadow DB configured):
+npx prisma migrate dev --name init
+```
+
+ - **Run seed (optional):**
+
+```bash
+npx ts-node prisma/seed.ts
+```
+
+Notes:
+ - Neon connection strings commonly include `sslmode=require` — keep it in the URL.
+ - If you use `prisma migrate`, set `SHADOW_DATABASE_URL` in your environment so Prisma can use a shadow database for safe migrations with Neon.

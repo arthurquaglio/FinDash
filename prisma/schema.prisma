@@ -13,6 +13,10 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Para usar Prisma Migrate com Neon (que recomenda usar um shadow DB),
+  // defina a variável `SHADOW_DATABASE_URL` com uma conexão válida de shadow DB.
+  // Ex: SHADOW_DATABASE_URL="postgresql://..."
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 // ... generator e datasource ...
