@@ -2,46 +2,44 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Wallet, ReceiptText } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils"; // Função utilitária do Shadcn para classes
+import { Home, Receipt, PieChart } from "lucide-react"; // Adicione ou mude os ícones conforme precisar
+
+// Centralizamos as rotas aqui para ficar fácil de dar manutenção
+const navItems = [
+    { name: "Início", href: "/", icon: Home },
+    { name: "Gastos", href: "/gastos", icon: Receipt },
+    { name: "Orçamentos", href: "/orcamentos", icon: PieChart },
+];
 
 export function SidebarNav() {
     const pathname = usePathname();
 
-    const routes = [
-        {
-            label: "Dashboard",
-            icon: LayoutDashboard,
-            href: "/",
-            active: pathname === "/",
-        },
-        {
-            label: "Gastos (Extrato)",
-            icon: ReceiptText,
-            href: "/gastos",
-            active: pathname === "/gastos",
-        },
-    ];
-
     return (
-        <nav className="flex flex-col gap-2">
-            {routes.map((route) => (
-                <Link key={route.href} href={route.href}>
-                    <Button
-                        variant="ghost"
-                        className={cn(
-                            "w-full justify-start gap-3 transition-all duration-200",
-                            route.active
-                                ? "bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 border-r-2 border-emerald-500 rounded-r-none"
-                                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900"
-                        )}
+        // flex-row no mobile (lado a lado), md:flex-col no desktop (um embaixo do outro)
+        <nav className="flex w-full flex-row md:flex-col justify-around md:justify-start gap-1 md:gap-2">
+            {navItems.map((item) => {
+                const isActive = pathname === item.href;
+                const Icon = item.icon;
+
+                return (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex flex-col md:flex-row items-center gap-1 md:gap-3 px-3 py-2 md:py-3 rounded-lg transition-colors flex-1 md:flex-none justify-center md:justify-start ${
+                            isActive
+                                ? "bg-emerald-500/10 text-emerald-500" // Cor quando está ativo
+                                : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-50" // Cor padrão
+                        }`}
                     >
-                        <route.icon className={cn("w-5 h-5", route.active ? "text-emerald-500" : "text-zinc-500")} />
-                        {route.label}
-                    </Button>
-                </Link>
-            ))}
+                        <Icon className="w-6 h-6 md:w-5 md:h-5" />
+
+                        {/* Texto minúsculo no mobile, tamanho normal no desktop */}
+                        <span className="text-[10px] md:text-sm font-medium">
+                            {item.name}
+                        </span>
+                    </Link>
+                );
+            })}
         </nav>
     );
 }

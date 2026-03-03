@@ -1,13 +1,13 @@
 // src/app/layout.tsx
 import { TrendingUp } from "lucide-react";
 import { SidebarNav } from "@/components/sidebar-nav";
-import { ProfileSelector } from "@/components/profile-selector"; // Importe aqui
+import { ProfileSelector } from "@/components/profile-selector";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import "./globals.css";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-    // Busca o Arthur e a Flávia no banco
+    // Busca os usuários no banco
     const users = await prisma.user.findMany({ orderBy: { name: 'asc' } });
 
     // Lê qual é o perfil selecionado atualmente no cookie
@@ -16,13 +16,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
     return (
         <html lang="pt-BR">
-        <body className="bg-zinc-950 text-zinc-50 flex min-h-screen">
-        <aside className="w-64 border-r border-zinc-900 bg-zinc-950/50 p-6 flex flex-col gap-8 hidden md:flex sticky top-0 h-screen">
+        {/* Mudamos para flex-col no mobile e flex-row no desktop (md:flex-row) */}
+        <body className="bg-zinc-950 text-zinc-50 flex flex-col md:flex-row min-h-screen">
+
+        {/* === BARRA SUPERIOR MOBILE (Aparece só no celular) === */}
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-zinc-900 bg-zinc-950/80 sticky top-0 z-50 backdrop-blur-md">
+            <div className="flex items-center gap-2 text-emerald-500 font-bold text-lg tracking-tight">
+                <TrendingUp className="w-5 h-5" /> FinDash
+            </div>
+            <div className="w-32"> {/* Largura reduzida para não quebrar a tela */}
+                <ProfileSelector users={users} activeId={activeProfileId} />
+            </div>
+        </header>
+
+        {/* === SIDEBAR DESKTOP (Inalterada, some no celular) === */}
+        <aside className="w-64 border-r border-zinc-900 bg-zinc-950/50 p-6 hidden md:flex flex-col gap-8 sticky top-0 h-screen">
             <div className="flex items-center gap-3 text-emerald-500 font-bold text-xl tracking-tight">
                 <TrendingUp className="w-6 h-6" /> FinDash
             </div>
 
-            {/* O NOVO SELETOR DE PERFIL */}
             <ProfileSelector users={users} activeId={activeProfileId} />
 
             <SidebarNav />
@@ -32,9 +44,20 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
         </aside>
 
-        <main className="flex-1 overflow-y-auto">
+        {/* === CONTEÚDO PRINCIPAL === */}
+        {/* pb-20 no mobile garante que a barra inferior não cubra o final do conteúdo */}
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
             {children}
         </main>
+
+        {/* === BARRA INFERIOR MOBILE (Aparece só no celular) === */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-zinc-900 bg-zinc-950/90 backdrop-blur-md z-50">
+            <div className="flex justify-around items-center p-2">
+                {/* Aqui renderizamos os links de navegação */}
+                <SidebarNav />
+            </div>
+        </nav>
+
         </body>
         </html>
     );
