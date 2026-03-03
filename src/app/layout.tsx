@@ -5,6 +5,7 @@ import { ProfileSelector } from "@/components/profile-selector";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import "./globals.css";
+import React from "react";
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
     // Busca os usuários no banco
@@ -20,17 +21,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <body className="bg-zinc-950 text-zinc-50 flex flex-col md:flex-row min-h-screen">
 
         {/* === BARRA SUPERIOR MOBILE (Aparece só no celular) === */}
-        <header className="md:hidden flex items-center justify-between p-4 border-b border-zinc-900 bg-zinc-950/80 sticky top-0 z-50 backdrop-blur-md">
+        <header className="md:hidden flex items-center justify-between p-4 border-b border-zinc-900 bg-zinc-950">
             <div className="flex items-center gap-2 text-emerald-500 font-bold text-lg tracking-tight">
-                <TrendingUp className="w-5 h-5" /> FinDash
+                <TrendingUp className="w-5 h-5"/> FinDash
             </div>
             <div className="w-32"> {/* Largura reduzida para não quebrar a tela */}
-                <ProfileSelector users={users} activeId={activeProfileId} />
+                <ProfileSelector users={users} activeId={activeProfileId}/>
             </div>
         </header>
 
         {/* === SIDEBAR DESKTOP (Inalterada, some no celular) === */}
-        <aside className="w-64 border-r border-zinc-900 bg-zinc-950/50 p-6 hidden md:flex flex-col gap-8 sticky top-0 h-screen">
+        <aside
+            className="w-64 border-r border-zinc-900 bg-zinc-950/50 p-6 hidden md:flex flex-col gap-8 sticky top-0 h-screen">
             <div className="flex items-center gap-3 text-emerald-500 font-bold text-xl tracking-tight">
                 <TrendingUp className="w-6 h-6" /> FinDash
             </div>
