@@ -2,7 +2,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers"; // Importação movida para o topo!
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
 import { identifyCategory } from "@/lib/categorizer";
 
@@ -11,9 +11,9 @@ export async function addTransaction(formData: FormData) {
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
-    // Se estiver na "Visão do Casal", trava a criação e avisa o usuário
+    // Se estiver na "Visão do Casal", retorna o erro em vez de quebrar o servidor
     if (!activeProfileId) {
-        throw new Error("Selecione um perfil (Arthur ou Flávia) no menu antes de adicionar.");
+        return { error: "Selecione um perfil (Arthur ou Flávia) no menu antes de adicionar." };
     }
 
     // 2. Extrai os dados que o formulário enviou
@@ -38,13 +38,16 @@ export async function addTransaction(formData: FormData) {
             date: new Date(`${dateString}T12:00:00Z`),
             typeId,
             categoryId,
-            userId: activeProfileId // <-- CORRIGIDO AQUI!
+            userId: activeProfileId
         }
     });
 
     // 5. Diz ao Next.js para recarregar os dados
     revalidatePath("/");
     revalidatePath("/gastos");
+
+    // 6. Retorna sucesso para o formulário saber que pode fechar
+    return { success: true };
 }
 
 export async function deleteTransaction(id: string) {
@@ -82,30 +85,30 @@ export async function updateTransaction(id: string, formData: FormData) {
 }
 
 export async function upsertBudget(categoryId: string, amount: number) {
-    // Mesma trava de segurança: precisa saber de quem é o orçamento
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
     if (!activeProfileId) {
-        throw new Error("Selecione um perfil (Arthur ou Flávia) no menu antes de definir um orçamento.");
+        return { error: "Selecione um perfil (Arthur ou Flávia) no menu antes de definir um orçamento." };
     }
 
     await prisma.budget.upsert({
         where: {
             categoryId_userId: {
                 categoryId: categoryId,
-                userId: activeProfileId // <-- CORRIGIDO AQUI!
+                userId: activeProfileId
             }
         },
         update: { amount },
         create: {
             categoryId,
             amount,
-            userId: activeProfileId, // <-- CORRIGIDO AQUI!
+            userId: activeProfileId,
         },
     });
 
     revalidatePath("/");
+    return { success: true };
 }
 
 export async function importTransactions(transactions: any[]) {
@@ -113,7 +116,7 @@ export async function importTransactions(transactions: any[]) {
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
     if (!activeProfileId) {
-        throw new Error("Por favor, selecione um perfil (Arthur ou Flávia) no menu lateral antes de importar o extrato.");
+        return { error: "Por favor, selecione um perfil (Arthur ou Flávia) no menu lateral antes de importar o extrato." };
     }
 
     const types = await prisma.transactionType.findMany();
@@ -124,7 +127,7 @@ export async function importTransactions(transactions: any[]) {
     const receitaType = types.find(t => t.name === "Receita");
 
     if (!defaultCategory || !gastoType || !receitaType) {
-        throw new Error("Certifique-se de rodar o SEED antes de importar.");
+        return { error: "Certifique-se de rodar o SEED antes de importar." };
     }
 
     const dataToSave = transactions.map(t => {
@@ -153,11 +156,12 @@ export async function importTransactions(transactions: any[]) {
         });
     } catch (error) {
         console.error("Erro no Prisma:", error);
-        throw new Error("Erro ao salvar no banco. Verifique se os dados estão corretos.");
+        return { error: "Erro ao salvar no banco. Verifique se os dados estão corretos." };
     }
 
     revalidatePath("/");
     revalidatePath("/gastos");
+    return { success: true };
 }
 
 export async function updateTransactionCategory(transactionId: string, categoryId: string) {

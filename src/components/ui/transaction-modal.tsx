@@ -12,8 +12,16 @@ export function TransactionModal({ types, categories }: any) {
     const [open, setOpen] = useState(false);
 
     async function handleSubmit(formData: FormData) {
-        await addTransaction(formData);
-        setOpen(false); // Fecha o modal após salvar
+        const response = await addTransaction(formData);
+
+        // Se a action retornar um erro, mostra o alerta e NÃO fecha o modal
+        if (response?.error) {
+            alert(response.error);
+            return;
+        }
+
+        // Se deu sucesso, aí sim fechamos o modal
+        setOpen(false);
     }
 
     return (
