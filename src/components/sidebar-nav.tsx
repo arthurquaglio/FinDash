@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Receipt, PieChart } from "lucide-react"; // Adicione ou mude os ícones conforme precisar
+import { Home, Receipt, PieChart, CreditCard } from "lucide-react"; // <-- 1. Importado o ícone CreditCard
 
 // Centralizamos as rotas aqui para ficar fácil de dar manutenção
 const navItems = [
     { name: "Início", href: "/", icon: Home },
     { name: "Gastos", href: "/gastos", icon: Receipt },
+    { name: "Cartões", href: "/cartoes", icon: CreditCard }, // <-- 2. Adicionado o botão de Cartões
 ];
 
 export function SidebarNav() {
