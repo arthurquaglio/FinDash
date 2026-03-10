@@ -6,6 +6,24 @@ import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import "./globals.css";
 import React from "react";
+import { Metadata, Viewport } from "next"; // Importado para suporte a PWA
+
+// Configurações do PWA e SEO
+export const metadata: Metadata = {
+    title: "FinDash",
+    description: "Nosso controle financeiro inteligente.",
+    manifest: "/manifest.json", // Aponta para o arquivo que criamos na pasta public
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: "default",
+        title: "FinDash",
+    },
+};
+
+// Configurações de visualização (cor da barra do navegador no celular)
+export const viewport: Viewport = {
+    themeColor: "#10b981",
+};
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
     // Busca os usuários no banco
@@ -17,7 +35,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
     return (
         <html lang="pt-BR">
-        {/* Mudamos para flex-col no mobile e flex-row no desktop (md:flex-row) */}
         <body className="bg-zinc-950 text-zinc-50 flex flex-col md:flex-row min-h-screen">
 
         {/* === BARRA SUPERIOR MOBILE (Aparece só no celular) === */}
@@ -25,12 +42,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <div className="flex items-center gap-2 text-emerald-500 font-bold text-lg tracking-tight">
                 <TrendingUp className="w-5 h-5"/> FinDash
             </div>
-            <div className="w-32"> {/* Largura reduzida para não quebrar a tela */}
+            <div className="w-32">
                 <ProfileSelector users={users} activeId={activeProfileId}/>
             </div>
         </header>
 
-        {/* === SIDEBAR DESKTOP (Inalterada, some no celular) === */}
+        {/* === SIDEBAR DESKTOP === */}
         <aside
             className="w-64 border-r border-zinc-900 bg-zinc-950/50 p-6 hidden md:flex flex-col gap-8 sticky top-0 h-screen">
             <div className="flex items-center gap-3 text-emerald-500 font-bold text-xl tracking-tight">
@@ -47,7 +64,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </aside>
 
         {/* === CONTEÚDO PRINCIPAL === */}
-        {/* pb-20 no mobile garante que a barra inferior não cubra o final do conteúdo */}
         <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
             {children}
         </main>
@@ -55,7 +71,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* === BARRA INFERIOR MOBILE (Aparece só no celular) === */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 border-t border-zinc-900 bg-zinc-950/90 backdrop-blur-md z-50">
             <div className="flex justify-around items-center p-2">
-                {/* Aqui renderizamos os links de navegação */}
                 <SidebarNav />
             </div>
         </nav>
