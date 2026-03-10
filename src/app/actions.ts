@@ -7,46 +7,65 @@ import { prisma } from "@/lib/prisma";
 import { identifyCategory } from "@/lib/categorizer";
 
 export async function addTransaction(formData: FormData) {
-    // 1. Descobrir quem está adicionando o gasto
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
-    // Se estiver na "Visão do Casal", retorna o erro em vez de quebrar o servidor
     if (!activeProfileId) {
         return { error: "Selecione um perfil (Arthur ou Flávia) no menu antes de adicionar." };
     }
 
-    // 2. Extrai os dados que o formulário enviou
     const name = formData.get("name") as string;
     const rawValue = Number(formData.get("value"));
     const dateString = formData.get("date") as string;
     const typeId = formData.get("typeId") as string;
     const categoryId = formData.get("categoryId") as string;
 
-    // 3. Busca o Tipo no banco para aplicar a regra de negócio do sinal matemático (+ ou -)
+    // NOVO: Pega o número de parcelas (se não vier nada, assume que é 1)
+    const installments = Number(formData.get("installments")) || 1;
+
     const type = await prisma.transactionType.findUnique({
         where: { id: typeId }
     });
 
-    const value = type?.name === "Receita" ? Math.abs(rawValue) : -Math.abs(rawValue);
+    const totalValue = type?.name === "Receita" ? Math.abs(rawValue) : -Math.abs(rawValue);
 
-    // 4. Salva a transação real no PostgreSQL usando o ID verdadeiro!
-    await prisma.transaction.create({
-        data: {
-            name,
-            value,
-            date: new Date(`${dateString}T12:00:00Z`),
+    // ---------------------------------------------------------
+    // A MÁGICA ACONTECE AQUI: Criação de múltiplas transações
+    // ---------------------------------------------------------
+
+    // Se for parcelado, dividimos o valor (arredondado para 2 casas decimais)
+    const installmentValue = installments > 1
+        ? Math.round((totalValue / installments) * 100) / 100
+        : totalValue;
+
+    const transactionsToCreate = [];
+    const baseDate = new Date(`${dateString}T12:00:00Z`);
+
+    // Criamos um "loop" que vai rodar a quantidade de vezes das parcelas
+    for (let i = 1; i <= installments; i++) {
+        // Copia a data base e adiciona os meses
+        const installmentDate = new Date(baseDate);
+        installmentDate.setMonth(baseDate.getMonth() + (i - 1));
+
+        transactionsToCreate.push({
+            // Se for parcelado, adiciona o "(1/10)" no nome
+            name: installments > 1 ? `${name} (${i}/${installments})` : name,
+            value: installmentValue,
+            date: installmentDate,
             typeId,
             categoryId,
             userId: activeProfileId
-        }
+        });
+    }
+
+    // Em vez de 'create', usamos 'createMany' para salvar a lista toda de uma vez
+    await prisma.transaction.createMany({
+        data: transactionsToCreate
     });
 
-    // 5. Diz ao Next.js para recarregar os dados
     revalidatePath("/");
     revalidatePath("/gastos");
 
-    // 6. Retorna sucesso para o formulário saber que pode fechar
     return { success: true };
 }
 
