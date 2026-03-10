@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 
 // Configurações de visualização (cor da barra do navegador no celular)
 export const viewport: Viewport = {
-    themeColor: "#10b981",
+    themeColor: "#09090b", // Antes era #10b981
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
