@@ -1,7 +1,7 @@
 // src/app/page.tsx
 import React from "react";
 import { prisma } from "@/lib/prisma";
-import { LayoutDashboard, Wallet, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Wallet, TrendingUp, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { TransactionModal } from "@/components/ui/transaction-modal";
@@ -10,6 +10,7 @@ import Link from "next/link";
 import { BudgetSidebar } from "@/components/budget-sidebar";
 import { cookies } from "next/headers";
 import { PeriodToggle } from "@/components/period-toggle";
+import { deleteBudget } from "@/app/actions";
 
 export default async function FinanceDashboard({
                                                  searchParams,
@@ -55,14 +56,33 @@ export default async function FinanceDashboard({
   });
 
   const expensesTransactions = periodTransactions.filter(t => t.type.name === "Gasto");
-
-  // NOVO: Filtra as transações de entrada (Receita)
   const incomeTransactions = periodTransactions.filter(t => t.type.name === "Receita");
 
   const highestExpense = expensesTransactions.length > 0
       ? expensesTransactions.reduce((prev, curr) =>
           (Math.abs(prev.value) > Math.abs(curr.value)) ? prev : curr)
       : null;
+
+  // NOVA BUSCA: Contas a Vencer nos próximos 15 dias
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+
+  const next15Days = new Date(todayStart);
+  next15Days.setDate(todayStart.getDate() + 15);
+
+  const upcomingBills = await prisma.transaction.findMany({
+    where: {
+      ...userFilter,
+      date: {
+        gte: todayStart,
+        lte: next15Days,
+      },
+      type: { name: "Gasto" }
+    },
+    include: { category: true },
+    orderBy: { date: 'asc' },
+    take: 5
+  });
 
   const budgetStatus = await Promise.all(
       allBudgets.map(async (b: any) => {
@@ -78,6 +98,7 @@ export default async function FinanceDashboard({
 
         const currentSpent = Math.abs(spent._sum.value || 0);
         return {
+          categoryId: b.categoryId, // Necessário para podermos deletar
           category: b.category?.name || "Sem categoria",
           limit: b.amount,
           current: currentSpent,
@@ -88,15 +109,15 @@ export default async function FinanceDashboard({
 
   const totalBalance = periodTransactions.reduce((acc, curr) => acc + curr.value, 0);
   const periodExpenses = expensesTransactions.reduce((acc, curr) => acc + Math.abs(curr.value), 0);
-
-  // NOVO: Soma todas as entradas do período
   const periodIncome = incomeTransactions.reduce((acc, curr) => acc + curr.value, 0);
 
   const totalInvested = periodTransactions
       .filter(t => t.type.name === "Investimento")
       .reduce((acc, curr) => acc + Math.abs(curr.value), 0);
 
+  // Gráfico agora mostra as Entradas também
   const chartData = [
+    { name: "Entradas", value: periodIncome, fill: "#60a5fa" },
     { name: "Gastos", value: periodExpenses, fill: "#f87171" },
     { name: "Investido", value: totalInvested, fill: "#3b82f6" },
     { name: "Saldo", value: totalBalance > 0 ? totalBalance : 0, fill: "#10b981" },
@@ -153,56 +174,119 @@ export default async function FinanceDashboard({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            {/* Gráfico esticado para preencher a altura (h-full) */}
             <div className="lg:col-span-2">
-              <DashboardCharts data={chartData}/>
+              <Card className="bg-zinc-900/50 border-zinc-800 h-full flex flex-col justify-center p-4">
+                <DashboardCharts data={chartData}/>
+              </Card>
             </div>
-            <div className="lg:col-span-1 space-y-4"> {/* Ajustei o space-y para 4 para caberem os 3 cards melhor */}
 
-              {/* NOVO: Card de Entradas */}
-              <Card className="bg-zinc-900/50 border-zinc-800">
-                <CardHeader className="pb-2"><CardTitle className="text-xs text-zinc-500 uppercase">Entradas {periodLabel}</CardTitle></CardHeader>
+            {/* Cards laterais empilhados e distribuídos uniformemente */}
+            <div className="lg:col-span-1 flex flex-col gap-4">
+              <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
+                <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Entradas {periodLabel}</CardTitle></CardHeader>
                 <CardContent><div className="text-3xl font-bold text-blue-400 font-mono">R$ {periodIncome.toLocaleString('pt-BR')}</div></CardContent>
               </Card>
 
-              {/* Card de Saídas */}
-              <Card className="bg-zinc-900/50 border-zinc-800">
-                <CardHeader className="pb-2"><CardTitle className="text-xs text-zinc-500 uppercase">Saídas {periodLabel}</CardTitle></CardHeader>
+              <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
+                <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Saídas {periodLabel}</CardTitle></CardHeader>
                 <CardContent><div className="text-3xl font-bold text-red-400 font-mono">R$ {periodExpenses.toLocaleString('pt-BR')}</div></CardContent>
               </Card>
 
-              {/* Card de Saldo */}
-              <Card className="bg-zinc-900/50 border-zinc-800">
-                <CardHeader className="pb-2"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo {periodLabel}</CardTitle></CardHeader>
+              <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
+                <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo {periodLabel}</CardTitle></CardHeader>
                 <CardContent><div className="text-3xl font-bold text-emerald-500">R$ {totalBalance.toLocaleString('pt-BR')}</div></CardContent>
               </Card>
-
             </div>
           </div>
 
+          {/* Área de Metas com o botão de apagar oculto no hover */}
           {budgetStatus.length > 0 && (
               <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
                 <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Acompanhamento de Metas</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
-                  {budgetStatus.map((b) => (
-                      <div key={b.category} className="space-y-2">
-                        <div className="flex justify-between text-xs font-medium">
-                          <span className="text-zinc-400">{b.category}</span>
-                          <span className={b.percent > 90 ? "text-red-400 font-bold" : "text-zinc-300"}>
-                          {b.current.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} / {b.limit.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
-                        </span>
+                  {budgetStatus.map((b) => {
+
+                    return (
+                        <div key={b.categoryId} className="space-y-2 group">
+                          <div className="flex justify-between items-center text-xs font-medium">
+                            <span className="text-zinc-400">{b.category}</span>
+                            <div className="flex items-center gap-3">
+                              <span className={b.percent > 90 ? "text-red-400 font-bold" : "text-zinc-300"}>
+                                {b.current.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} / {b.limit.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                              </span>
+                              {/* Botão de Deletar com ícone que aparece no hover */}
+                              <form action={async () => {
+                                "use server";
+                                await deleteBudget(b.categoryId);
+                              }}>
+                                <button type="submit" className="text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </form>
+                            </div>
+                          </div>
+                          <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-500 ${b.percent > 90 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                                style={{width: `${Math.min(b.percent, 100)}%`}}
+                            />
+                          </div>
                         </div>
-                        <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
-                          <div
-                              className={`h-full transition-all duration-500 ${b.percent > 90 ? 'bg-red-500' : 'bg-emerald-500'}`}
-                              style={{width: `${Math.min(b.percent, 100)}%`}}
-                          />
-                        </div>
-                      </div>
-                  ))}
+                    );
+                  })}
                 </CardContent>
               </Card>
           )}
 
+          {/* NOVO: Painel de Contas a Vencer */}
+          <Card className="bg-zinc-900/50 border-zinc-800 mb-8 overflow-hidden relative">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-orange-500/50 to-orange-400/20" />
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold text-orange-400 uppercase tracking-widest flex items-center gap-2">
+                Próximos Vencimentos (15 dias)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {upcomingBills.length > 0 ? (
+                  <div className="space-y-3">
+                    {upcomingBills.map((bill) => {
+                      const billDate = new Date(bill.date);
+                      const diffTime = billDate.getTime() - todayStart.getTime();
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                      let dayText = "";
+                      if (diffDays === 0) dayText = "Vence Hoje!";
+                      else if (diffDays === 1) dayText = "Vence Amanhã";
+                      else dayText = `Em ${diffDays} dias`;
+
+                      return (
+                          <div key={bill.id} className="flex items-center justify-between p-3 rounded-lg bg-zinc-950/50 border border-zinc-800/50">
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-md ${diffDays <= 3 ? 'bg-orange-500/10 text-orange-400' : 'bg-zinc-800 text-zinc-400'}`}>
+                                <Wallet className="w-4 h-4" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-zinc-200">{bill.name}</p>
+                                <p className={`text-[10px] font-bold uppercase ${diffDays <= 3 ? 'text-orange-400' : 'text-zinc-500'}`}>
+                                  {dayText} • {billDate.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right font-mono font-bold text-sm text-zinc-300">
+                              {Math.abs(bill.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </div>
+                          </div>
+                      );
+                    })}
+                  </div>
+              ) : (
+                  <p className="text-sm text-zinc-500 italic py-4 text-center">Nenhuma conta para os próximos 15 dias. Ufa!</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Histórico Recente */}
           <Card className="bg-zinc-900/50 border-zinc-800">
             <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Histórico Recente</CardTitle></CardHeader>
             <CardContent>

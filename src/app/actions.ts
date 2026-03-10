@@ -230,3 +230,25 @@ export async function deleteManyTransactions(ids: string[]) {
         return { error: "Erro ao apagar as transações selecionadas." };
     }
 }
+
+export async function deleteBudget(categoryId: string) {
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) return { error: "Selecione um perfil." };
+
+    try {
+        await prisma.budget.delete({
+            where: {
+                categoryId_userId: {
+                    categoryId: categoryId,
+                    userId: activeProfileId
+                }
+            }
+        });
+        revalidatePath("/");
+        return { success: true };
+    } catch (error) {
+        return { error: "Erro ao apagar a meta." };
+    }
+}
