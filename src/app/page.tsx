@@ -9,14 +9,13 @@ import { DashboardCharts } from "@/components/ui/dashboard-charts";
 import Link from "next/link";
 import { BudgetSidebar } from "@/components/budget-sidebar";
 import { cookies } from "next/headers";
-import { PeriodToggle } from "@/components/period-toggle"; // <-- 1. Importação do Checkbox
+import { PeriodToggle } from "@/components/period-toggle";
 
 export default async function FinanceDashboard({
-                                                 searchParams, // <-- 2. Recebe a URL para saber se o checkbox está marcado
+                                                 searchParams,
                                                }: {
   searchParams: Promise<{ periodo?: string }>;
 }) {
-  // Resolve os parâmetros da URL
   const params = await searchParams;
   const isAllTime = params.periodo === "tudo";
 
@@ -24,7 +23,6 @@ export default async function FinanceDashboard({
   const activeProfileId = cookieStore.get("activeProfileId")?.value;
   const userFilter = activeProfileId ? { userId: activeProfileId } : {};
 
-  // 3. Regra de Datas (Mês atual vs Todo o Período)
   const now = new Date();
   const firstDayMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastDayMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
@@ -47,33 +45,32 @@ export default async function FinanceDashboard({
     include: { budgets: true }
   });
 
-  // 4. Busca TODAS as transações do período selecionado para a matemática bater
   const periodTransactions = await prisma.transaction.findMany({
     where: {
       ...userFilter,
-      ...dateFilter // Aplica o filtro de data dinâmico
+      ...dateFilter
     },
     include: { type: true, category: true },
     orderBy: { date: 'desc' },
   });
 
-  // Separa apenas os gastos do período
   const expensesTransactions = periodTransactions.filter(t => t.type.name === "Gasto");
 
-  // Maior gasto dinâmico (do mês ou de todo o período)
+  // NOVO: Filtra as transações de entrada (Receita)
+  const incomeTransactions = periodTransactions.filter(t => t.type.name === "Receita");
+
   const highestExpense = expensesTransactions.length > 0
       ? expensesTransactions.reduce((prev, curr) =>
           (Math.abs(prev.value) > Math.abs(curr.value)) ? prev : curr)
       : null;
 
-  // 5. Status das Metas respeitando o filtro de data
   const budgetStatus = await Promise.all(
       allBudgets.map(async (b: any) => {
         const spent = await prisma.transaction.aggregate({
           where: {
             ...userFilter,
             categoryId: b.categoryId,
-            ...dateFilter, // <-- Orçamentos também mudam com o checkbox!
+            ...dateFilter,
             value: { lt: 0 }
           },
           _sum: { value: true }
@@ -89,9 +86,12 @@ export default async function FinanceDashboard({
       })
   );
 
-  // 6. Cálculos Corrigidos (usando periodTransactions em vez de limitar a 10)
   const totalBalance = periodTransactions.reduce((acc, curr) => acc + curr.value, 0);
   const periodExpenses = expensesTransactions.reduce((acc, curr) => acc + Math.abs(curr.value), 0);
+
+  // NOVO: Soma todas as entradas do período
+  const periodIncome = incomeTransactions.reduce((acc, curr) => acc + curr.value, 0);
+
   const totalInvested = periodTransactions
       .filter(t => t.type.name === "Investimento")
       .reduce((acc, curr) => acc + Math.abs(curr.value), 0);
@@ -102,10 +102,8 @@ export default async function FinanceDashboard({
     { name: "Saldo", value: totalBalance > 0 ? totalBalance : 0, fill: "#10b981" },
   ];
 
-  // 7. Pega as 10 mais recentes para a listagem visual não ficar gigante
   const recentTransactions = periodTransactions.slice(0, 10);
 
-  // Textos dinâmicos para a interface
   const periodText = isAllTime ? "todo o período" : "do mês";
   const periodLabel = isAllTime ? "(Total)" : "(Mês)";
 
@@ -118,7 +116,6 @@ export default async function FinanceDashboard({
               <p className="text-sm text-zinc-500 mt-1">Nossas finanças bem organizadas para o futuro.</p>
             </div>
             <div className="flex gap-3 items-center">
-              {/* Checkbox adicionado ao lado dos botões principais! */}
               <div className="mr-4 hidden md:block">
                 <PeriodToggle />
               </div>
@@ -127,7 +124,6 @@ export default async function FinanceDashboard({
             </div>
           </header>
 
-          {/* Versão Mobile do Checkbox (aparece embaixo do título em telas pequenas) */}
           <div className="mb-6 md:hidden">
             <PeriodToggle />
           </div>
@@ -157,16 +153,29 @@ export default async function FinanceDashboard({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <DashboardCharts data={chartData}/>
-            <div className="lg:col-span-1 space-y-6">
+            <div className="lg:col-span-2">
+              <DashboardCharts data={chartData}/>
+            </div>
+            <div className="lg:col-span-1 space-y-4"> {/* Ajustei o space-y para 4 para caberem os 3 cards melhor */}
+
+              {/* NOVO: Card de Entradas */}
               <Card className="bg-zinc-900/50 border-zinc-800">
-                <CardHeader className="pb-2"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo {periodLabel}</CardTitle></CardHeader>
-                <CardContent><div className="text-3xl font-bold text-emerald-500">R$ {totalBalance.toLocaleString('pt-BR')}</div></CardContent>
+                <CardHeader className="pb-2"><CardTitle className="text-xs text-zinc-500 uppercase">Entradas {periodLabel}</CardTitle></CardHeader>
+                <CardContent><div className="text-3xl font-bold text-blue-400 font-mono">R$ {periodIncome.toLocaleString('pt-BR')}</div></CardContent>
               </Card>
+
+              {/* Card de Saídas */}
               <Card className="bg-zinc-900/50 border-zinc-800">
                 <CardHeader className="pb-2"><CardTitle className="text-xs text-zinc-500 uppercase">Saídas {periodLabel}</CardTitle></CardHeader>
                 <CardContent><div className="text-3xl font-bold text-red-400 font-mono">R$ {periodExpenses.toLocaleString('pt-BR')}</div></CardContent>
               </Card>
+
+              {/* Card de Saldo */}
+              <Card className="bg-zinc-900/50 border-zinc-800">
+                <CardHeader className="pb-2"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo {periodLabel}</CardTitle></CardHeader>
+                <CardContent><div className="text-3xl font-bold text-emerald-500">R$ {totalBalance.toLocaleString('pt-BR')}</div></CardContent>
+              </Card>
+
             </div>
           </div>
 
