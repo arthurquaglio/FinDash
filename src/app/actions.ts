@@ -20,8 +20,9 @@ export async function addTransaction(formData: FormData) {
     const typeId = formData.get("typeId") as string;
     const categoryId = formData.get("categoryId") as string;
 
-    // NOVO: Pega o número de parcelas (se não vier nada, assume que é 1)
+    // Pega as opções de repetição (se vier vazio, é 1)
     const installments = Number(formData.get("installments")) || 1;
+    const fixedMonths = Number(formData.get("fixedMonths")) || 1;
 
     const type = await prisma.transactionType.findUnique({
         where: { id: typeId }
@@ -29,36 +30,37 @@ export async function addTransaction(formData: FormData) {
 
     const totalValue = type?.name === "Receita" ? Math.abs(rawValue) : -Math.abs(rawValue);
 
-    // ---------------------------------------------------------
-    // A MÁGICA ACONTECE AQUI: Criação de múltiplas transações
-    // ---------------------------------------------------------
+    // Determina quantas vezes o loop vai rodar (pegando o maior número)
+    const iterations = Math.max(installments, fixedMonths);
 
-    // Se for parcelado, dividimos o valor (arredondado para 2 casas decimais)
-    const installmentValue = installments > 1
+    // Se for parcelado, divide o valor. Se for fixo ou normal, o valor é integral.
+    const iterationValue = installments > 1
         ? Math.round((totalValue / installments) * 100) / 100
         : totalValue;
 
     const transactionsToCreate = [];
     const baseDate = new Date(`${dateString}T12:00:00Z`);
 
-    // Criamos um "loop" que vai rodar a quantidade de vezes das parcelas
-    for (let i = 1; i <= installments; i++) {
-        // Copia a data base e adiciona os meses
-        const installmentDate = new Date(baseDate);
-        installmentDate.setMonth(baseDate.getMonth() + (i - 1));
+    for (let i = 1; i <= iterations; i++) {
+        const iterationDate = new Date(baseDate);
+        iterationDate.setMonth(baseDate.getMonth() + (i - 1));
+
+        // Formata o nome: Se for parcelado coloca "(1/10)", se for fixo fica normal
+        let finalName = name;
+        if (installments > 1) {
+            finalName = `${name} (${i}/${iterations})`;
+        }
 
         transactionsToCreate.push({
-            // Se for parcelado, adiciona o "(1/10)" no nome
-            name: installments > 1 ? `${name} (${i}/${installments})` : name,
-            value: installmentValue,
-            date: installmentDate,
+            name: finalName,
+            value: iterationValue,
+            date: iterationDate,
             typeId,
             categoryId,
             userId: activeProfileId
         });
     }
 
-    // Em vez de 'create', usamos 'createMany' para salvar a lista toda de uma vez
     await prisma.transaction.createMany({
         data: transactionsToCreate
     });

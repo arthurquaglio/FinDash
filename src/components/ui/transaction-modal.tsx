@@ -10,7 +10,21 @@ import { addTransaction } from "@/app/actions";
 
 export function TransactionModal({ types, categories }: any) {
     const [open, setOpen] = useState(false);
-    const [isInstallment, setIsInstallment] = useState(false); // <-- Novo estado para controlar o checkbox
+
+    // Nossos dois estados de controle
+    const [isInstallment, setIsInstallment] = useState(false);
+    const [isFixed, setIsFixed] = useState(false);
+
+    // Lógicas para garantir que apenas um fique marcado por vez
+    const handleInstallmentChange = (checked: boolean) => {
+        setIsInstallment(checked);
+        if (checked) setIsFixed(false);
+    };
+
+    const handleFixedChange = (checked: boolean) => {
+        setIsFixed(checked);
+        if (checked) setIsInstallment(false);
+    };
 
     async function handleSubmit(formData: FormData) {
         const response = await addTransaction(formData);
@@ -21,7 +35,8 @@ export function TransactionModal({ types, categories }: any) {
         }
 
         setOpen(false);
-        setIsInstallment(false); // Reseta o formulário ao fechar
+        setIsInstallment(false);
+        setIsFixed(false);
     }
 
     return (
@@ -35,7 +50,16 @@ export function TransactionModal({ types, categories }: any) {
                 <DialogHeader><DialogTitle>Adicionar Transação</DialogTitle></DialogHeader>
                 <form action={handleSubmit} className="grid gap-4 py-4">
                     <Input name="name" placeholder="Nome" required className="bg-zinc-950 border-zinc-800" />
-                    <Input name="value" type="number" step="0.01" placeholder="Valor Total" required className="bg-zinc-950 border-zinc-800" />
+
+                    {/* Mudamos o placeholder dependendo do que está selecionado para ficar mais claro */}
+                    <Input
+                        name="value"
+                        type="number"
+                        step="0.01"
+                        placeholder={isFixed ? "Valor da Mensalidade" : "Valor Total"}
+                        required
+                        className="bg-zinc-950 border-zinc-800"
+                    />
 
                     <div className="grid grid-cols-2 gap-4">
                         <Input name="date" type="date" required className="bg-zinc-950 border-zinc-800 text-zinc-100" />
@@ -48,36 +72,51 @@ export function TransactionModal({ types, categories }: any) {
                         {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
 
-                    {/* --- INÍCIO DA ÁREA DE PARCELAMENTO --- */}
-                    <div className="flex flex-col gap-3 p-3 bg-zinc-950/50 border border-zinc-800 rounded-lg mt-2">
-                        <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={isInstallment}
-                                onChange={(e) => setIsInstallment(e.target.checked)}
-                                className="w-4 h-4 rounded border-zinc-800 bg-zinc-950 accent-emerald-500"
-                            />
-                            Esta compra é parcelada?
-                        </label>
+                    {/* --- ÁREA DE OPÇÕES AVANÇADAS --- */}
+                    <div className="flex flex-col gap-4 p-4 bg-zinc-950/50 border border-zinc-800 rounded-lg mt-2">
 
-                        {/* Só mostra este campo se o checkbox estiver marcado */}
-                        {isInstallment && (
-                            <div className="flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
-                                <span className="text-sm text-zinc-400">Em quantas vezes?</span>
-                                <Input
-                                    name="installments"
-                                    type="number"
-                                    min="2"
-                                    max="72"
-                                    defaultValue="2"
-                                    className="bg-zinc-950 border-zinc-800 w-24"
+                        {/* Opção 1: Parcelado */}
+                        <div className="flex flex-col gap-2">
+                            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer w-max">
+                                <input
+                                    type="checkbox"
+                                    checked={isInstallment}
+                                    onChange={(e) => handleInstallmentChange(e.target.checked)}
+                                    className="w-4 h-4 rounded border-zinc-800 bg-zinc-950 accent-emerald-500"
                                 />
-                            </div>
-                        )}
-                    </div>
-                    {/* --- FIM DA ÁREA DE PARCELAMENTO --- */}
+                                Compra parcelada?
+                            </label>
 
-                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 mt-2">Salvar</Button>
+                            {isInstallment && (
+                                <div className="flex items-center gap-3 ml-6 animate-in fade-in slide-in-from-top-2">
+                                    <span className="text-sm text-zinc-500">Em quantas vezes?</span>
+                                    <Input name="installments" type="number" min="2" max="72" defaultValue="2" className="bg-zinc-950 border-zinc-800 w-20 h-8 text-sm" />
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Opção 2: Fixo/Recorrente */}
+                        <div className="flex flex-col gap-2 border-t border-zinc-800/50 pt-3">
+                            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer w-max">
+                                <input
+                                    type="checkbox"
+                                    checked={isFixed}
+                                    onChange={(e) => handleFixedChange(e.target.checked)}
+                                    className="w-4 h-4 rounded border-zinc-800 bg-zinc-950 accent-emerald-500"
+                                />
+                                Gasto fixo mensal?
+                            </label>
+
+                            {isFixed && (
+                                <div className="flex items-center gap-3 ml-6 animate-in fade-in slide-in-from-top-2">
+                                    <span className="text-sm text-zinc-500">Projetar por quantos meses?</span>
+                                    <Input name="fixedMonths" type="number" min="2" max="120" defaultValue="12" className="bg-zinc-950 border-zinc-800 w-20 h-8 text-sm" />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 mt-2">Salvar Transação</Button>
                 </form>
             </DialogContent>
         </Dialog>
