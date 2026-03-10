@@ -13,13 +13,14 @@ datasource db {
   shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
-// 1. ATUALIZADO: Modelo de Usuário (Agora tem Cartões)
+// Modelo de Usuário
 model User {
   id           String        @id @default(uuid())
   name         String
   transactions Transaction[]
   budgets      Budget[]
-  creditCards  CreditCard[]  // <-- NOVO: Relação com os cartões
+  creditCards  CreditCard[]
+  goals        Goal[]        // <-- NOVO: Relação com as Caixinhas/Objetivos
 }
 
 // Modelos Globais
@@ -36,27 +37,26 @@ model TransactionType {
   transactions Transaction[]
 }
 
-// 2. NOVO: Modelo de Cartão de Crédito
+// Modelo de Cartão de Crédito
 model CreditCard {
   id         String        @id @default(uuid())
-  name       String        // Ex: "Nubank", "Itaú"
-  closingDay Int           // Dia que a fatura fecha (melhor dia para compra)
-  dueDay     Int           // Dia que a fatura vence
+  name       String
+  closingDay Int
+  dueDay     Int
 
   userId     String
   user       User          @relation(fields: [userId], references: [id])
 
-  transactions Transaction[] // Todas as compras feitas neste cartão
+  transactions Transaction[]
 }
 
-// 3. ATUALIZADO: Adicionando o Cartão de Crédito opcional na transação
+// Transações
 model Transaction {
   id         String   @id @default(uuid())
   name       String
   value      Float
   date       DateTime
 
-  // Relações existentes
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
   typeId     String
@@ -65,13 +65,11 @@ model Transaction {
   userId     String
   user       User     @relation(fields: [userId], references: [id])
 
-  // NOVO: Se a transação foi no cartão, guarda o ID dele aqui.
-  // O "?" significa que é opcional (pode ser Pix/Débito)
   creditCardId String?
   creditCard   CreditCard? @relation(fields: [creditCardId], references: [id])
 }
 
-// 4. Modelo de Metas
+// Metas de Gastos (Limites mensais)
 model Budget {
   id         String   @id @default(uuid())
   amount     Float
@@ -83,4 +81,18 @@ model Budget {
   user       User     @relation(fields: [userId], references: [id])
 
   @@unique([categoryId, userId])
+}
+
+// ==========================================
+// NOVO: Caixinhas de Objetivos (Poupança)
+// ==========================================
+model Goal {
+  id            String    @id @default(uuid())
+  name          String    // Ex: "Viagem a Paris"
+  targetAmount  Float     // Ex: 15000 (Quanto quer juntar)
+  currentAmount Float     @default(0) // Quanto já tem guardado hoje
+  deadline      DateTime? // Opcional: Data limite para atingir a meta
+
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
 }

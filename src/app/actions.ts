@@ -249,10 +249,6 @@ export async function deleteBudget(categoryId: string) {
     }
 }
 
-// ==========================================
-// NOVAS FUNÇÕES: CARTÃO DE CRÉDITO
-// ==========================================
-
 export async function addCreditCard(formData: FormData) {
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
@@ -290,7 +286,7 @@ export async function deleteCreditCard(id: string) {
         await prisma.creditCard.delete({
             where: {
                 id: id,
-                userId: activeProfileId // Segurança: só apaga se for do dono
+                userId: activeProfileId
             }
         });
         revalidatePath("/cartoes");
@@ -298,5 +294,80 @@ export async function deleteCreditCard(id: string) {
         return { success: true };
     } catch (error) {
         return { error: "Não foi possível apagar. Verifique se existem transações vinculadas a este cartão." };
+    }
+}
+
+// ==========================================
+// NOVAS FUNÇÕES: CAIXINHAS / OBJETIVOS (GOALS)
+// ==========================================
+
+export async function addGoal(formData: FormData) {
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) return { error: "Selecione um perfil." };
+
+    const name = formData.get("name") as string;
+    const targetAmount = Number(formData.get("targetAmount"));
+    const currentAmount = Number(formData.get("currentAmount")) || 0;
+
+    try {
+        await prisma.goal.create({
+            data: {
+                name,
+                targetAmount,
+                currentAmount,
+                userId: activeProfileId
+            }
+        });
+        revalidatePath("/");
+        return { success: true };
+    } catch (error) {
+        return { error: "Erro ao criar a caixinha." };
+    }
+}
+
+export async function addMoneyToGoal(goalId: string, amountToAdd: number) {
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) return { error: "Selecione um perfil." };
+
+    try {
+        await prisma.goal.update({
+            where: {
+                id: goalId,
+                userId: activeProfileId // Segurança extra
+            },
+            data: {
+                currentAmount: {
+                    increment: amountToAdd // O Prisma soma o valor automaticamente!
+                }
+            }
+        });
+        revalidatePath("/");
+        return { success: true };
+    } catch (error) {
+        return { error: "Erro ao adicionar dinheiro na caixinha." };
+    }
+}
+
+export async function deleteGoal(id: string) {
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) return { error: "Selecione um perfil." };
+
+    try {
+        await prisma.goal.delete({
+            where: {
+                id: id,
+                userId: activeProfileId
+            }
+        });
+        revalidatePath("/");
+        return { success: true };
+    } catch (error) {
+        return { error: "Erro ao apagar a caixinha." };
     }
 }
