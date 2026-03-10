@@ -180,3 +180,32 @@ export async function setActiveProfile(userId: string) {
         (await cookies()).set("activeProfileId", userId, { path: "/" });
     }
 }
+
+export async function deleteManyTransactions(ids: string[]) {
+    // 1. Descobre quem está logado
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) {
+        return { error: "Selecione um perfil (Arthur ou Flávia) no menu antes de apagar." };
+    }
+
+    try {
+        // 2. Apaga todas as transações que estão na lista de IDs e que pertencem ao usuário atual
+        await prisma.transaction.deleteMany({
+            where: {
+                id: { in: ids },
+                userId: activeProfileId // Trava de segurança importantíssima!
+            }
+        });
+
+        // 3. Atualiza as telas
+        revalidatePath("/");
+        revalidatePath("/gastos");
+
+        return { success: true };
+    } catch (error) {
+        console.error("Erro ao apagar transações em massa:", error);
+        return { error: "Erro ao apagar as transações selecionadas." };
+    }
+}
