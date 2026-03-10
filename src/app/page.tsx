@@ -1,16 +1,17 @@
 // src/app/page.tsx
 import React from "react";
 import { prisma } from "@/lib/prisma";
-import { LayoutDashboard, Wallet, TrendingUp, Trash2 } from "lucide-react";
+import { LayoutDashboard, Wallet, TrendingUp, Trash2, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { TransactionModal } from "@/components/ui/transaction-modal";
 import { DashboardCharts } from "@/components/ui/dashboard-charts";
-import Link from "next/link";
 import { BudgetSidebar } from "@/components/budget-sidebar";
+import { GoalModal } from "@/components/ui/goal-modal";
 import { cookies } from "next/headers";
 import { PeriodToggle } from "@/components/period-toggle";
-import { deleteBudget } from "@/app/actions";
+import { deleteBudget, deleteGoal, addMoneyToGoal } from "@/app/actions";
 
 export default async function FinanceDashboard({
                                                  searchParams,
@@ -46,9 +47,14 @@ export default async function FinanceDashboard({
     include: { budgets: true }
   });
 
-  // NOVO: Busca a lista de cartões de crédito do usuário atual
   const userCreditCards = await prisma.creditCard.findMany({
     where: { ...userFilter }
+  });
+
+  // NOVO: Busca as Caixinhas do usuário
+  const userGoals = await prisma.goal.findMany({
+    where: { ...userFilter },
+    orderBy: { name: 'asc' }
   });
 
   const periodTransactions = await prisma.transaction.findMany({
@@ -111,7 +117,6 @@ export default async function FinanceDashboard({
       })
   );
 
-  // NOVO: O Saldo Total agora ignora as compras feitas no Cartão de Crédito! (t.creditCardId === null)
   const totalBalance = periodTransactions
       .filter((t) => t.creditCardId === null)
       .reduce((acc, curr) => acc + curr.value, 0);
@@ -148,7 +153,6 @@ export default async function FinanceDashboard({
                 <PeriodToggle />
               </div>
               <BudgetSidebar categories={allCategories} budgets={allBudgets}/>
-              {/* NOVO: Passamos a lista de cartões para o formulário! */}
               <TransactionModal types={types} categories={allCategories} creditCards={userCreditCards} />
             </div>
           </header>
@@ -173,7 +177,7 @@ export default async function FinanceDashboard({
             <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-4">
               <div className="p-2.5 bg-blue-500/10 rounded-lg text-blue-500"><LayoutDashboard className="w-5 h-5"/></div>
               <div>
-                <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Atenção às Metas</p>
+                <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Atenção aos Limites</p>
                 <p className="text-sm text-zinc-200">
                   Você tem <strong>{budgetStatus.filter(b => b.current > b.limit).length}</strong> categorias acima do limite.
                 </p>
@@ -206,9 +210,81 @@ export default async function FinanceDashboard({
             </div>
           </div>
 
+          {/* ========================================== */}
+          {/* NOVO: CAIXINHAS DE OBJETIVOS               */}
+          {/* ========================================== */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
+                <Target className="w-5 h-5 text-emerald-500" />
+                Minhas Caixinhas
+              </h2>
+              <GoalModal />
+            </div>
+
+            {userGoals.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {userGoals.map((goal) => {
+                    const percent = (goal.currentAmount / goal.targetAmount) * 100;
+
+                    return (
+                        <Card key={goal.id} className="bg-zinc-900/50 border-zinc-800 group relative">
+                          <CardContent className="p-5">
+                            <div className="flex justify-between items-start mb-4">
+                              <div>
+                                <h3 className="font-bold text-zinc-100">{goal.name}</h3>
+                                <p className="text-xs text-zinc-500 mt-1">
+                                  {goal.currentAmount.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} de {goal.targetAmount.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                                </p>
+                              </div>
+                              <form action={async () => {
+                                "use server";
+                                await deleteGoal(goal.id);
+                              }}>
+                                <button type="submit" className="text-zinc-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </form>
+                            </div>
+
+                            <div className="h-3 w-full bg-zinc-800 rounded-full overflow-hidden mb-4">
+                              <div
+                                  className="h-full bg-emerald-500 transition-all duration-500"
+                                  style={{width: `${Math.min(percent, 100)}%`}}
+                              />
+                            </div>
+
+                            {/* Formulário rápido para Guardar Dinheiro que aparece ao passar o rato (hover) */}
+                            <form action={async (formData) => {
+                              "use server";
+                              const val = Number(formData.get("amount"));
+                              if(val > 0) await addMoneyToGoal(goal.id, val);
+                            }} className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
+                              <Input name="amount" type="number" step="0.01" min="0.01" placeholder="Guardar mais..." className="h-8 text-xs bg-zinc-950 border-zinc-800" />
+                              <Button type="submit" size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-xs text-white">Guardar</Button>
+                            </form>
+                          </CardContent>
+                        </Card>
+                    );
+                  })}
+                </div>
+            ) : (
+                <Card className="bg-zinc-900/20 border border-zinc-800 border-dashed">
+                  <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                    <Target className="w-8 h-8 text-zinc-700 mb-3" />
+                    <p className="text-sm font-medium text-zinc-300">Nenhuma caixinha criada</p>
+                    <p className="text-xs text-zinc-500 mt-1">Crie o seu primeiro objetivo para começar a poupar.</p>
+                  </CardContent>
+                </Card>
+            )}
+          </div>
+
+          {/* ========================================== */}
+          {/* ATUALIZADO: Limites de Gastos (Budgets)      */}
+          {/* ========================================== */}
           {budgetStatus.length > 0 && (
               <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
-                <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Acompanhamento de Metas</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Limites de Gastos</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
                   {budgetStatus.map((b) => {
 
@@ -232,7 +308,7 @@ export default async function FinanceDashboard({
                           </div>
                           <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
                             <div
-                                className={`h-full transition-all duration-500 ${b.percent > 90 ? 'bg-red-500' : 'bg-emerald-500'}`}
+                                className={`h-full transition-all duration-500 ${b.percent > 90 ? 'bg-red-500' : 'bg-rose-500'}`}
                                 style={{width: `${Math.min(b.percent, 100)}%`}}
                             />
                           </div>
