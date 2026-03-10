@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/sheet";
 import { upsertBudget } from "@/app/actions";
 
-// Adicionamos a interface para o TypeScript parar de reclamar do 'any'
 interface BudgetSidebarProps {
     categories: any[];
     budgets: any[];
@@ -31,7 +30,7 @@ export function BudgetSidebar({ categories, budgets }: BudgetSidebarProps) {
         try {
             await upsertBudget(categoryId, parseFloat(input.value));
         } catch (error) {
-            console.error("Erro ao salvar meta:", error);
+            console.error("Erro ao salvar limite:", error);
         } finally {
             setLoadingId(null);
         }
@@ -42,20 +41,20 @@ export function BudgetSidebar({ categories, budgets }: BudgetSidebarProps) {
             <SheetTrigger asChild>
                 <Button variant="outline" className="border-zinc-800 bg-zinc-900/50 gap-2 text-zinc-300">
                     <Target className="w-4 h-4 text-blue-400" />
-                    Definir Metas
+                    Definir Limites
                 </Button>
             </SheetTrigger>
             <SheetContent className="bg-zinc-950 border-zinc-800 text-zinc-100 w-[400px] sm:w-[540px]">
                 <SheetHeader className="mb-6">
-                    <SheetTitle className="text-xl font-bold text-zinc-500">Metas Mensais</SheetTitle>
+                    <SheetTitle className="text-xl font-bold text-zinc-500">Limites de Gastos</SheetTitle>
                     <SheetDescription className="text-zinc-500">
-                        Defina o limite de gastos para cada categoria. As barras de progresso no dashboard serão atualizadas automaticamente.
+                        Defina o teto de gastos para cada categoria. O alerta no dashboard mostrará se você ultrapassar este valor.
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="space-y-6 overflow-y-auto pr-2 max-h-[80vh]">
                     {categories.map((category) => {
-                        // Procuramos se já existe uma meta para esta categoria
+                        // Procuramos se já existe um limite para esta categoria
                         const currentBudget = budgets.find((b) => b.categoryId === category.id);
 
                         return (
@@ -65,7 +64,7 @@ export function BudgetSidebar({ categories, budgets }: BudgetSidebarProps) {
                                         {category.name}
                                     </label>
                                     {currentBudget && (
-                                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Meta Ativa</span>
+                                        <span className="text-[10px] text-zinc-500 uppercase tracking-wider">Limite Ativo</span>
                                     )}
                                 </div>
 
