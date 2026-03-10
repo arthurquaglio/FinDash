@@ -20,7 +20,8 @@ export async function addTransaction(formData: FormData) {
     const typeId = formData.get("typeId") as string;
     const categoryId = formData.get("categoryId") as string;
 
-    // Pega as opções de repetição (se vier vazio, é 1)
+    const creditCardId = formData.get("creditCardId") as string | null;
+
     const installments = Number(formData.get("installments")) || 1;
     const fixedMonths = Number(formData.get("fixedMonths")) || 1;
 
@@ -30,10 +31,8 @@ export async function addTransaction(formData: FormData) {
 
     const totalValue = type?.name === "Receita" ? Math.abs(rawValue) : -Math.abs(rawValue);
 
-    // Determina quantas vezes o loop vai rodar (pegando o maior número)
     const iterations = Math.max(installments, fixedMonths);
 
-    // Se for parcelado, divide o valor. Se for fixo ou normal, o valor é integral.
     const iterationValue = installments > 1
         ? Math.round((totalValue / installments) * 100) / 100
         : totalValue;
@@ -45,7 +44,6 @@ export async function addTransaction(formData: FormData) {
         const iterationDate = new Date(baseDate);
         iterationDate.setMonth(baseDate.getMonth() + (i - 1));
 
-        // Formata o nome: Se for parcelado coloca "(1/10)", se for fixo fica normal
         let finalName = name;
         if (installments > 1) {
             finalName = `${name} (${i}/${iterations})`;
@@ -57,7 +55,8 @@ export async function addTransaction(formData: FormData) {
             date: iterationDate,
             typeId,
             categoryId,
-            userId: activeProfileId
+            userId: activeProfileId,
+            creditCardId: creditCardId === "" ? null : creditCardId
         });
     }
 
@@ -203,7 +202,6 @@ export async function setActiveProfile(userId: string) {
 }
 
 export async function deleteManyTransactions(ids: string[]) {
-    // 1. Descobre quem está logado
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
@@ -212,15 +210,13 @@ export async function deleteManyTransactions(ids: string[]) {
     }
 
     try {
-        // 2. Apaga todas as transações que estão na lista de IDs e que pertencem ao usuário atual
         await prisma.transaction.deleteMany({
             where: {
                 id: { in: ids },
-                userId: activeProfileId // Trava de segurança importantíssima!
+                userId: activeProfileId
             }
         });
 
-        // 3. Atualiza as telas
         revalidatePath("/");
         revalidatePath("/gastos");
 
@@ -250,5 +246,57 @@ export async function deleteBudget(categoryId: string) {
         return { success: true };
     } catch (error) {
         return { error: "Erro ao apagar a meta." };
+    }
+}
+
+// ==========================================
+// NOVAS FUNÇÕES: CARTÃO DE CRÉDITO
+// ==========================================
+
+export async function addCreditCard(formData: FormData) {
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) return { error: "Selecione um perfil." };
+
+    const name = formData.get("name") as string;
+    const closingDay = Number(formData.get("closingDay"));
+    const dueDay = Number(formData.get("dueDay"));
+
+    try {
+        await prisma.creditCard.create({
+            data: {
+                name,
+                closingDay,
+                dueDay,
+                userId: activeProfileId
+            }
+        });
+        revalidatePath("/cartoes");
+        revalidatePath("/");
+        return { success: true };
+    } catch (error) {
+        return { error: "Erro ao cadastrar o cartão." };
+    }
+}
+
+export async function deleteCreditCard(id: string) {
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) return { error: "Selecione um perfil." };
+
+    try {
+        await prisma.creditCard.delete({
+            where: {
+                id: id,
+                userId: activeProfileId // Segurança: só apaga se for do dono
+            }
+        });
+        revalidatePath("/cartoes");
+        revalidatePath("/");
+        return { success: true };
+    } catch (error) {
+        return { error: "Não foi possível apagar. Verifique se existem transações vinculadas a este cartão." };
     }
 }

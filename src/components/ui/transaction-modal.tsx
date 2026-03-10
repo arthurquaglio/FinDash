@@ -8,14 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { addTransaction } from "@/app/actions";
 
-export function TransactionModal({ types, categories }: any) {
+// NOVO: Adicionamos creditCards nas propriedades que o modal recebe
+export function TransactionModal({ types, categories, creditCards = [] }: any) {
     const [open, setOpen] = useState(false);
 
-    // Nossos dois estados de controle
     const [isInstallment, setIsInstallment] = useState(false);
     const [isFixed, setIsFixed] = useState(false);
 
-    // Lógicas para garantir que apenas um fique marcado por vez
     const handleInstallmentChange = (checked: boolean) => {
         setIsInstallment(checked);
         if (checked) setIsFixed(false);
@@ -51,7 +50,6 @@ export function TransactionModal({ types, categories }: any) {
                 <form action={handleSubmit} className="grid gap-4 py-4">
                     <Input name="name" placeholder="Nome" required className="bg-zinc-950 border-zinc-800" />
 
-                    {/* Mudamos o placeholder dependendo do que está selecionado para ficar mais claro */}
                     <Input
                         name="value"
                         type="number"
@@ -68,14 +66,24 @@ export function TransactionModal({ types, categories }: any) {
                         </select>
                     </div>
 
-                    <select name="categoryId" required className="bg-zinc-950 border-zinc-800 rounded-md h-10 px-2 text-sm">
-                        {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <select name="categoryId" required className="bg-zinc-950 border-zinc-800 rounded-md h-10 px-2 text-sm">
+                            <option value="" disabled selected hidden>Categoria...</option>
+                            {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+
+                        {/* NOVO: Seletor de Forma de Pagamento */}
+                        <select name="creditCardId" className="bg-zinc-950 border-zinc-800 rounded-md h-10 px-2 text-sm text-zinc-300">
+                            <option value="">Débito / Pix</option>
+                            {creditCards.map((card: any) => (
+                                <option key={card.id} value={card.id}>💳 {card.name}</option>
+                            ))}
+                        </select>
+                    </div>
 
                     {/* --- ÁREA DE OPÇÕES AVANÇADAS --- */}
                     <div className="flex flex-col gap-4 p-4 bg-zinc-950/50 border border-zinc-800 rounded-lg mt-2">
 
-                        {/* Opção 1: Parcelado */}
                         <div className="flex flex-col gap-2">
                             <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer w-max">
                                 <input
@@ -95,7 +103,6 @@ export function TransactionModal({ types, categories }: any) {
                             )}
                         </div>
 
-                        {/* Opção 2: Fixo/Recorrente */}
                         <div className="flex flex-col gap-2 border-t border-zinc-800/50 pt-3">
                             <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer w-max">
                                 <input

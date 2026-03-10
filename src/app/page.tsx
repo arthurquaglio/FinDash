@@ -46,6 +46,11 @@ export default async function FinanceDashboard({
     include: { budgets: true }
   });
 
+  // NOVO: Busca a lista de cartões de crédito do usuário atual
+  const userCreditCards = await prisma.creditCard.findMany({
+    where: { ...userFilter }
+  });
+
   const periodTransactions = await prisma.transaction.findMany({
     where: {
       ...userFilter,
@@ -63,7 +68,6 @@ export default async function FinanceDashboard({
           (Math.abs(prev.value) > Math.abs(curr.value)) ? prev : curr)
       : null;
 
-  // NOVA BUSCA: Contas a Vencer nos próximos 15 dias
   const todayStart = new Date();
   todayStart.setHours(0, 0, 0, 0);
 
@@ -98,7 +102,7 @@ export default async function FinanceDashboard({
 
         const currentSpent = Math.abs(spent._sum.value || 0);
         return {
-          categoryId: b.categoryId, // Necessário para podermos deletar
+          categoryId: b.categoryId,
           category: b.category?.name || "Sem categoria",
           limit: b.amount,
           current: currentSpent,
@@ -107,7 +111,11 @@ export default async function FinanceDashboard({
       })
   );
 
-  const totalBalance = periodTransactions.reduce((acc, curr) => acc + curr.value, 0);
+  // NOVO: O Saldo Total agora ignora as compras feitas no Cartão de Crédito! (t.creditCardId === null)
+  const totalBalance = periodTransactions
+      .filter((t) => t.creditCardId === null)
+      .reduce((acc, curr) => acc + curr.value, 0);
+
   const periodExpenses = expensesTransactions.reduce((acc, curr) => acc + Math.abs(curr.value), 0);
   const periodIncome = incomeTransactions.reduce((acc, curr) => acc + curr.value, 0);
 
@@ -115,7 +123,6 @@ export default async function FinanceDashboard({
       .filter(t => t.type.name === "Investimento")
       .reduce((acc, curr) => acc + Math.abs(curr.value), 0);
 
-  // Gráfico agora mostra as Entradas também
   const chartData = [
     { name: "Entradas", value: periodIncome, fill: "#60a5fa" },
     { name: "Gastos", value: periodExpenses, fill: "#f87171" },
@@ -141,7 +148,8 @@ export default async function FinanceDashboard({
                 <PeriodToggle />
               </div>
               <BudgetSidebar categories={allCategories} budgets={allBudgets}/>
-              <TransactionModal types={types} categories={allCategories}/>
+              {/* NOVO: Passamos a lista de cartões para o formulário! */}
+              <TransactionModal types={types} categories={allCategories} creditCards={userCreditCards} />
             </div>
           </header>
 
@@ -174,14 +182,12 @@ export default async function FinanceDashboard({
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            {/* Gráfico esticado para preencher a altura (h-full) */}
             <div className="lg:col-span-2">
               <Card className="bg-zinc-900/50 border-zinc-800 h-full flex flex-col justify-center p-4">
                 <DashboardCharts data={chartData}/>
               </Card>
             </div>
 
-            {/* Cards laterais empilhados e distribuídos uniformemente */}
             <div className="lg:col-span-1 flex flex-col gap-4">
               <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
                 <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Entradas {periodLabel}</CardTitle></CardHeader>
@@ -194,13 +200,12 @@ export default async function FinanceDashboard({
               </Card>
 
               <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
-                <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo {periodLabel}</CardTitle></CardHeader>
+                <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo da Conta {periodLabel}</CardTitle></CardHeader>
                 <CardContent><div className="text-3xl font-bold text-emerald-500">R$ {totalBalance.toLocaleString('pt-BR')}</div></CardContent>
               </Card>
             </div>
           </div>
 
-          {/* Área de Metas com o botão de apagar oculto no hover */}
           {budgetStatus.length > 0 && (
               <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
                 <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Acompanhamento de Metas</CardTitle></CardHeader>
@@ -215,7 +220,6 @@ export default async function FinanceDashboard({
                               <span className={b.percent > 90 ? "text-red-400 font-bold" : "text-zinc-300"}>
                                 {b.current.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} / {b.limit.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
                               </span>
-                              {/* Botão de Deletar com ícone que aparece no hover */}
                               <form action={async () => {
                                 "use server";
                                 await deleteBudget(b.categoryId);
@@ -239,7 +243,6 @@ export default async function FinanceDashboard({
               </Card>
           )}
 
-          {/* NOVO: Painel de Contas a Vencer */}
           <Card className="bg-zinc-900/50 border-zinc-800 mb-8 overflow-hidden relative">
             <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-orange-500/50 to-orange-400/20" />
             <CardHeader>
@@ -286,7 +289,6 @@ export default async function FinanceDashboard({
             </CardContent>
           </Card>
 
-          {/* Histórico Recente */}
           <Card className="bg-zinc-900/50 border-zinc-800">
             <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Histórico Recente</CardTitle></CardHeader>
             <CardContent>

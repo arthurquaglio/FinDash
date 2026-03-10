@@ -76,7 +76,7 @@ export default async function GastosPage({
                     </div>
                 </header>
 
-                {/* Olha como o código ficou limpo! O seu novo componente faz todo o trabalho pesado agora: */}
+                {/* Olha como o código ficou limpo! O seu novo componente faz t0do o trabalho pesado agora: */}
                 <TransactionTableClient
                     transactions={transactions}
                     types={types}
