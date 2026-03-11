@@ -70,7 +70,6 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
 
                         const value = credito > 0 ? credito : -debito;
 
-                        // Tenta adivinhar a categoria usando a nossa lógica
                         let foundCategoryId = defaultCategory?.id;
                         try {
                             const suggestedName = identifyCategory(historico);
@@ -87,16 +86,15 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                             value: value,
                             categoryId: foundCategoryId,
                             creditCardId: null,
-                            selected: true, // Começa selecionado para importar
+                            selected: true,
                         };
                     })
                     .filter((t: any) => t !== null && t.value !== 0) as ParsedTransaction[];
 
                 setParsedData(formattedData);
-                setIsReviewing(true); // Abre o Modal de Revisão
+                setIsReviewing(true);
                 setIsImporting(false);
 
-                // Limpa o input file para permitir importar o mesmo ficheiro de novo se precisar
                 event.target.value = '';
             },
         });
@@ -113,7 +111,6 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
 
     const handleConfirmImport = async () => {
         setIsImporting(true);
-        // Filtra apenas os que o utilizador deixou com a checkbox marcada
         const transactionsToImport = parsedData.filter(tx => tx.selected);
 
         if (transactionsToImport.length > 0) {
@@ -151,17 +148,17 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                 </Button>
             </label>
 
-            {/* MODAL DE REVISÃO DA IMPORTAÇÃO */}
             <Dialog open={isReviewing} onOpenChange={setIsReviewing}>
-                <DialogContent className="max-w-5xl bg-zinc-950 border-zinc-800 text-zinc-100 max-h-[90vh] flex flex-col">
+                {/* AQUI: max-w-[95vw] para ficar gigante e h-[90vh] para ter bastante altura */}
+                <DialogContent className="max-w-[95vw] w-full h-[90vh] bg-zinc-950 border-zinc-800 text-zinc-100 flex flex-col">
                     <DialogHeader>
                         <DialogTitle className="text-xl text-emerald-500">Revisão de Extrato</DialogTitle>
                         <DialogDescription className="text-zinc-400">
-                            Confirme as categorias, associe a cartões ou desmarque o que não quer importar.
+                            Ajuste os nomes, datas, categorias e associe a cartões antes de salvar.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto pr-2 space-y-2 mt-4">
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-2 mt-4 pb-4">
                         {parsedData.map((tx) => (
                             <div
                                 key={tx.id}
@@ -178,12 +175,37 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                                     className="w-5 h-5 accent-emerald-500 rounded cursor-pointer shrink-0 mt-1 md:mt-0"
                                 />
                                 <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 w-full items-center">
-                                    <div className="md:col-span-2 text-xs text-zinc-400">
-                                        {tx.date.toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+
+                                    {/* Edição de Data */}
+                                    <div className="md:col-span-2">
+                                        <input
+                                            type="date"
+                                            value={tx.date.toISOString().substring(0, 10)}
+                                            onChange={(e) => {
+                                                if(e.target.value) {
+                                                    // Força o horário para o meio dia para evitar bugs de fuso horário
+                                                    const newDate = new Date(`${e.target.value}T12:00:00Z`);
+                                                    updateTransaction(tx.id, 'date', newDate);
+                                                }
+                                            }}
+                                            disabled={!tx.selected}
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-xs text-zinc-300 focus:ring-emerald-500 outline-none"
+                                        />
                                     </div>
-                                    <div className="md:col-span-4 text-sm font-medium text-zinc-200 truncate" title={tx.name}>
-                                        {tx.name}
+
+                                    {/* Edição de Nome */}
+                                    <div className="md:col-span-4">
+                                        <input
+                                            type="text"
+                                            value={tx.name}
+                                            onChange={(e) => updateTransaction(tx.id, 'name', e.target.value)}
+                                            disabled={!tx.selected}
+                                            className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-xs text-zinc-300 focus:ring-emerald-500 outline-none"
+                                            placeholder="Nome da transação"
+                                        />
                                     </div>
+
+                                    {/* Valor Fixo (Apenas visualização) */}
                                     <div className={`md:col-span-2 text-sm font-bold md:text-right ${tx.value > 0 ? 'text-blue-400' : 'text-red-400'}`}>
                                         {tx.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                     </div>
@@ -210,7 +232,7 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                                             disabled={!tx.selected}
                                             className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-xs text-zinc-300 focus:ring-emerald-500 outline-none"
                                         >
-                                            <option value="">(Sem Cartão)</option>
+                                            <option value="">(Dinheiro / Conta)</option>
                                             {creditCards.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}
@@ -221,7 +243,7 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                         ))}
                     </div>
 
-                    <div className="pt-4 mt-4 border-t border-zinc-800 flex justify-between items-center">
+                    <div className="pt-4 mt-auto border-t border-zinc-800 flex justify-between items-center bg-zinc-950">
                         <span className="text-sm text-zinc-400">
                             Selecionadas: <strong className="text-zinc-100">{parsedData.filter(t => t.selected).length}</strong> de {parsedData.length}
                         </span>
