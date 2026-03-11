@@ -45,7 +45,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
         while ((match = regexBloco.exec(textoOFX)) !== null) {
             const bloco = match[1];
 
-            const dataPostagem = extrairValor('DTPOSTED', bloco); // Ex: 20260309000000[-03:EST]
+            const dataPostagem = extrairValor('DTPOSTED', bloco);
             const valorStr = extrairValor('TRNAMT', bloco);
             let descricao = (extrairValor('MEMO', bloco) || extrairValor('NAME', bloco) || "TRANSAÇÃO DESCONHECIDA").toUpperCase();
             const idTransacao = extrairValor('FITID', bloco) || `temp-${Math.random()}`;
@@ -81,7 +81,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             }
             // 2. Regra: Cruzeiro do Sul
             else if (descricao.includes("CRUZEIRO DO SUL")) {
-                descricao = "PIX - CRUZEIRO DO SUL";
+                descricao = "PIX - CRUZEIRO DO SUL EDUCA";
                 foundCategoryId = getCategoriaId("EDUCACAO");
             }
             // 3. Regra: Serginho Team
@@ -94,21 +94,23 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 let loja = descricao.replace(/CARTAO VISA ELECTRON/g, '').replace(/[-:]/g, ' ').trim();
                 descricao = `CARTÃO DEBITO - ${loja}`;
             }
-            else if (descricao.includes("VISA ELECTRON")) {
-                let loja = descricao.replace(/VISA ELECTRON/g, '').replace(/[-:]/g, ' ').trim();
-                descricao = `CARTÃO DEBITO - ${loja}`;
-            }
             // 5. Regra: Arthur Augusto (Investimentos)
-            else if (descricao.includes("ARTHUR AUGUSTO QUAGLIO LIMA")) {
+            else if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA")) {
                 if (valor < 0) {
                     descricao = "INVESTIMENTO INTER";
                     overrideType = "Investimento";
                 } else {
-                    descricao = "INVESTIMENTO";
+                    descricao = "PIX - INVESTIMENTO";
+                    foundCategoryId = getCategoriaId("RENDA FIXA");
                     overrideType = "Receita";
                 }
             }
-            // 6. Regras Gerais de PIX (Pega só o primeiro nome)
+            // 6. Regra: PIX recebidos (feitos para mim) que vinham como TRANSFE
+            else if (isPix && valor > 0 && descricao.includes("TRANSFE")) {
+                descricao = "PIX - INVESTIMENTO";
+                foundCategoryId = getCategoriaId("RENDA FIXA");
+            }
+            // 7. Regras Gerais de PIX (Pega só o primeiro nome)
             else if (isPix) {
                 // Remove todos os lixos de texto do PIX
                 let cleanName = descricao
@@ -126,7 +128,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                     .replace(/\s+/g, ' ');
 
                 if (cleanName) {
-                    // Mágica para pegar só o primeiro nome (ex: "UBER DO BRASIL" vira "UBER", "JOAO SILVA" vira "JOAO")
                     const primeiroNome = cleanName.split(' ')[0];
                     descricao = `PIX - ${primeiroNome}`;
                 } else {
@@ -144,15 +145,12 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 }
             }
 
-            // 7. Regra global: Tudo que tem INVEST é Renda Fixa
+            // 8. Regra global: Tudo que tem INVEST é Renda Fixa
             if (descricao.includes("INVEST")) {
                 foundCategoryId = getCategoriaId("RENDA FIXA");
             }
-            if (descricao.includes("INV")) {
-                foundCategoryId = getCategoriaId("RENDA FIXA");
-            }
 
-            // 8. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
+            // 9. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
             if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVEST") && !isPix && descricao !== "SALARIO") {
                 try {
                     const suggestedName = identifyCategory(descricao);
@@ -274,7 +272,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                                     className="w-6 h-6 accent-emerald-500 rounded cursor-pointer shrink-0 mt-1 xl:mt-0"
                                 />
                                 <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-4 w-full items-center">
-
                                     {/* Edição de Data */}
                                     <div className="xl:col-span-2">
                                         <input
@@ -290,7 +287,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                                             className="w-full bg-zinc-800 border border-zinc-700 hover:border-emerald-500/50 rounded-lg p-2.5 text-sm text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
                                         />
                                     </div>
-
                                     {/* Edição de Nome */}
                                     <div className="xl:col-span-4">
                                         <input
@@ -302,12 +298,10 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                                             placeholder="Nome da transação"
                                         />
                                     </div>
-
                                     {/* Valor Fixo */}
                                     <div className={`xl:col-span-2 text-base font-bold xl:text-right ${tx.value > 0 ? 'text-blue-400' : 'text-red-400'}`}>
                                         {tx.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                     </div>
-
                                     {/* Select de Categoria */}
                                     <div className="xl:col-span-2">
                                         <select
@@ -321,7 +315,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                                             ))}
                                         </select>
                                     </div>
-
                                     {/* Select de Cartão */}
                                     <div className="xl:col-span-2">
                                         <select
