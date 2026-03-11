@@ -383,6 +383,8 @@ export async function importReviewedTransactions(transactions: any[]) {
     const types = await prisma.transactionType.findMany();
     const gastoType = types.find(t => t.name === "Gasto");
     const receitaType = types.find(t => t.name === "Receita");
+    // Busca o tipo de investimento (certifique-se de que ele existe no banco com esse nome)
+    const investimentoType = types.find(t => t.name.toUpperCase() === "INVESTIMENTO");
 
     if (!gastoType || !receitaType) {
         return { error: "Tipos de transação não encontrados. Rode o SEED." };
@@ -390,13 +392,23 @@ export async function importReviewedTransactions(transactions: any[]) {
 
     const dataToSave = transactions.map(t => {
         const isNegative = t.value < 0;
+
+        // Define o tipo padrão (Gasto ou Receita)
+        let finalTypeId = isNegative ? gastoType.id : receitaType.id;
+
+        // Verifica se o frontend mandou uma sobrescrita (ex: Regra do Arthur)
+        if (t.overrideType === "Investimento" && investimentoType) {
+            finalTypeId = investimentoType.id;
+        } else if (t.overrideType === "Receita") {
+            finalTypeId = receitaType.id;
+        }
+
         return {
             name: t.name,
             value: t.value,
-            // Certificando que a data vai no formato correto
             date: new Date(t.date),
             categoryId: t.categoryId,
-            typeId: isNegative ? gastoType.id : receitaType.id,
+            typeId: finalTypeId,
             userId: activeProfileId,
             creditCardId: t.creditCardId || null,
         };

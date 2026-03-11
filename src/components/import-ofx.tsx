@@ -20,6 +20,7 @@ type ParsedTransaction = {
     categoryId: string;
     creditCardId: string | null;
     selected: boolean;
+    overrideType?: "Investimento" | "Receita" | null;
 };
 
 export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
@@ -46,7 +47,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
 
             const dataPostagem = extrairValor('DTPOSTED', bloco); // Ex: 20260309000000[-03:EST]
             const valorStr = extrairValor('TRNAMT', bloco);
-            const descricao = extrairValor('MEMO', bloco) || extrairValor('NAME', bloco) || "Transação Desconhecida";
+            let descricao = (extrairValor('MEMO', bloco) || extrairValor('NAME', bloco) || "TRANSAÇÃO DESCONHECIDA").toUpperCase();
             const idTransacao = extrairValor('FITID', bloco) || `temp-${Math.random()}`;
 
             if (!dataPostagem || !valorStr) continue;
@@ -57,16 +58,70 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             const ano = parseInt(dataPostagem.substring(0, 4));
             const mes = parseInt(dataPostagem.substring(4, 6)) - 1; // Mês começa em 0 no JS
             const dia = parseInt(dataPostagem.substring(6, 8));
-            const dataFormatada = new Date(Date.UTC(ano, mes, dia, 12, 0, 0)); // Meio-dia UTC para evitar fuso horário puxando 1 dia para trás
+            const dataFormatada = new Date(Date.UTC(ano, mes, dia, 12, 0, 0)); // Meio-dia UTC
 
-            // Categorização Automática Inteligente
+            // ==========================================
+            // REGRAS DE LIMPEZA E FORMATAÇÃO (SEU PADRÃO)
+            // ==========================================
+            let isPix = descricao.includes('PIX');
+
+            if (isPix) {
+                // Limpa lixos bancários comuns
+                let cleanName = descricao
+                    .replace(/PIX\s*QR\s*CODE\s*DINAMICO/g, '')
+                    .replace(/PIX\s*TRANSF/g, '')
+                    .replace(/PIX\s*ENVIADO/g, '')
+                    .replace(/PIX\s*RECEBIDO/g, '')
+                    .replace(/DES:/g, '')
+                    .replace(/NOME:/g, '')
+                    .replace(/[0-9]{2}\/[0-9]{2}/g, '') // Remove datas soltas ex: 07/03
+                    .replace(/[-:]/g, ' ')
+                    .trim()
+                    .replace(/\s+/g, ' '); // Remove espaços duplos
+
+                descricao = cleanName ? `PIX - ${cleanName}` : "PIX";
+            }
+
+            // ==========================================
+            // ATRIBUIÇÃO AUTOMÁTICA DE CATEGORIA E TIPO
+            // ==========================================
             let foundCategoryId = defaultCategory?.id;
-            try {
-                const suggestedName = identifyCategory(descricao);
-                const matchedCat = categories.find((c: any) => c.name.toLowerCase() === suggestedName.toLowerCase());
-                if (matchedCat) foundCategoryId = matchedCat.id;
-            } catch (e) {
-                // Silencioso se falhar
+            let overrideType: "Investimento" | "Receita" | null = null;
+
+            // 1. Regra: Arthur Augusto (Investimentos)
+            if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA")) {
+                if (valor < 0) {
+                    descricao = "INVESTIMENTO INTER";
+                    overrideType = "Investimento";
+                    const rfCat = categories.find((c: any) => c.name.toUpperCase() === "RENDA FIXA");
+                    if (rfCat) foundCategoryId = rfCat.id;
+                } else {
+                    descricao = "INVESTIMENTO";
+                    overrideType = "Receita";
+                }
+            }
+            // 2. Regra: Uber (Transporte)
+            else if (descricao.includes("UBER")) {
+                const transCat = categories.find((c: any) => c.name.toUpperCase() === "TRANSPORTE");
+                if (transCat) foundCategoryId = transCat.id;
+            }
+            // 3. Regra: PIX para Pessoa Física (Lazer)
+            else if (isPix) {
+                // Heurística: Se é PIX e NÃO contém termos de empresa, assumimos que é uma pessoa (Lazer)
+                const isEmpresa = descricao.match(/(LTDA|S\.A|PAGAMENTOS|PAGSEGURO|MERCADO PAGO|IFOOD|99APP|INSTITUICAO|BANK|BANCO)/);
+                if (!isEmpresa) {
+                    const lazerCat = categories.find((c: any) => c.name.toUpperCase() === "LAZER");
+                    if (lazerCat) foundCategoryId = lazerCat.id;
+                }
+            }
+
+            // 4. Fallback: Se nenhuma regra acima pegou, tenta o categorizer padrão
+            if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVESTIMENTO") && !isPix) {
+                try {
+                    const suggestedName = identifyCategory(descricao);
+                    const matchedCat = categories.find((c: any) => c.name.toUpperCase() === suggestedName.toUpperCase());
+                    if (matchedCat) foundCategoryId = matchedCat.id;
+                } catch (e) {}
             }
 
             transacoes.push({
@@ -77,6 +132,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 categoryId: foundCategoryId,
                 creditCardId: null,
                 selected: true,
+                overrideType: overrideType
             });
         }
 
@@ -133,7 +189,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
         setIsImporting(false);
     };
 
-    // O retorno (JSX) permanece idêntico ao seu modal de revisão que já estava perfeito
     return (
         <div>
             <input
@@ -159,7 +214,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
 
             <Dialog open={isReviewing} onOpenChange={setIsReviewing}>
                 <DialogContent className="sm:max-w-[95vw] w-[95vw] h-[90vh] bg-zinc-950 border-zinc-800 text-zinc-100 flex flex-col p-4 md:p-6">
-                    {/* ... (T0do o seu código de cabeçalho e listagem do Modal fica exatamente igual aqui) ... */}
                     <DialogHeader className="mb-2">
                         <DialogTitle className="text-2xl font-bold text-emerald-500">Revisão de Extrato OFX</DialogTitle>
                         <DialogDescription className="text-zinc-400 text-base">
