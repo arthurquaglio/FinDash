@@ -52,6 +52,13 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
 
             if (!dataPostagem || !valorStr) continue;
 
+            // ==========================================
+            // EXCLUSÃO DE TRANSAÇÕES IGNORADAS
+            // ==========================================
+            if (descricao.includes("RESG.AUTOM.INVEST") || descricao.includes("RESGATE INVEST")) {
+                continue; // Pula essa transação completamente, ela não vai para a lista
+            }
+
             const valor = parseFloat(valorStr);
 
             // Converter a data do formato OFX (YYYYMMDD...) para Date do JS
@@ -81,7 +88,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             }
             // 2. Regra: Cruzeiro do Sul
             else if (descricao.includes("CRUZEIRO DO SUL")) {
-                descricao = "PIX - CRUZEIRO DO SUL EDUCA";
+                descricao = "PIX - CRUZEIRO DO SUL"; // Alterado conforme pedido
                 foundCategoryId = getCategoriaId("EDUCACAO");
             }
             // 3. Regra: Serginho Team
@@ -106,13 +113,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                     overrideType = "Receita";
                 }
             }
-            // 6. Regra: PIX recebidos (feitos para mim) que vinham como TRANSFE (e sem nome)
-            else if (isPix && valor > 0 && descricao.includes("TRANSFE") && !descricao.includes("REM") && descricao.length < 20) {
-                // Se for SÓ a palavra TRANSFE e mais nada, assumimos que é seu investimento rendendo
-                descricao = "PIX - INVESTIMENTO";
-                foundCategoryId = getCategoriaId("RENDA FIXA");
-            }
-            // 7. Regras Gerais de PIX (Limpa lixos e pega só o primeiro nome)
+            // 6. Regras Gerais de PIX (Limpa lixos e pega só o primeiro nome)
             else if (isPix) {
                 // Remove todos os lixos de texto do PIX
                 let cleanName = descricao
@@ -126,10 +127,10 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                     .replace(/PIX\s*RECEBIDO/g, '')
                     .replace(/DES:/g, '')
                     .replace(/NOME:/g, '')
-                    .replace(/\bREM\b/g, '') // <-- NOVO: Remove "REM" solto
-                    .replace(/REMETENTE/g, '') // <-- NOVO: Remove "REMETENTE"
+                    .replace(/\bREM\b/g, '')
+                    .replace(/REMETENTE/g, '')
                     .replace(/\bEV\b/g, '')
-                    .replace(/[0-9]{2}\/[0-9]{2}/g, '') // Remove datas
+                    .replace(/[0-9]{2}\/[0-9]{2}/g, '')
                     .replace(/[-:]/g, ' ')
                     .trim()
                     .replace(/\s+/g, ' ');
@@ -138,19 +139,13 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                     const primeiroNome = cleanName.split(' ')[0];
                     descricao = `PIX - ${primeiroNome}`;
                 } else {
-                    if (valor > 0) {
-                        descricao = "PIX - INVESTIMENTO";
-                        foundCategoryId = getCategoriaId("RENDA FIXA");
-                    } else {
-                        descricao = "PIX";
-                    }
+                    // Se não sobrou nome nenhum, é apenas um PIX (regra de renda fixa apagada aqui)
+                    descricao = "PIX";
                 }
 
                 // Corrige categoria do Uber e fallback para pessoas (Lazer)
                 if (descricao.includes("UBER") || cleanName.includes("UBER")) {
                     foundCategoryId = getCategoriaId("TRANSPORTE");
-                } else if (descricao === "PIX - INVESTIMENTO") {
-                    // Mantém Renda Fixa
                 } else {
                     const isEmpresa = descricao.match(/(LTDA|S\.A|PAGAMENTOS|PAGSEGURO|MERCADO PAGO|IFOOD|99APP|INSTITUICAO|BANK|BANCO)/);
                     if (!isEmpresa) {
@@ -159,12 +154,12 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 }
             }
 
-            // 8. Regra global: Tudo que tem INVEST é Renda Fixa
+            // 7. Regra global: Tudo que tem INVEST é Renda Fixa
             if (descricao.includes("INVEST")) {
                 foundCategoryId = getCategoriaId("RENDA FIXA");
             }
 
-            // 9. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
+            // 8. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
             if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVEST") && !isPix && descricao !== "SALARIO") {
                 try {
                     const suggestedName = identifyCategory(descricao);
@@ -199,7 +194,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             if (conteudo) {
                 const dadosProcessados = processarOFX(conteudo);
                 if (dadosProcessados.length === 0) {
-                    alert("Nenhuma transação encontrada ou formato OFX inválido.");
+                    alert("Nenhuma transação válida encontrada ou formato OFX inválido.");
                 } else {
                     setParsedData(dadosProcessados);
                     setIsReviewing(true);
