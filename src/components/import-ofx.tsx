@@ -106,7 +106,13 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                     overrideType = "Receita";
                 }
             }
-            // 6. Regras Gerais de PIX (Limpa lixos e pega só o primeiro nome)
+            // 6. Regra: PIX recebidos (feitos para mim) que vinham como TRANSFE (e sem nome)
+            else if (isPix && valor > 0 && descricao.includes("TRANSFE") && !descricao.includes("REM") && descricao.length < 20) {
+                // Se for SÓ a palavra TRANSFE e mais nada, assumimos que é seu investimento rendendo
+                descricao = "PIX - INVESTIMENTO";
+                foundCategoryId = getCategoriaId("RENDA FIXA");
+            }
+            // 7. Regras Gerais de PIX (Limpa lixos e pega só o primeiro nome)
             else if (isPix) {
                 // Remove todos os lixos de texto do PIX
                 let cleanName = descricao
@@ -120,17 +126,18 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                     .replace(/PIX\s*RECEBIDO/g, '')
                     .replace(/DES:/g, '')
                     .replace(/NOME:/g, '')
-                    .replace(/\bEV\b/g, '') // Remove o "EV" isolado
-                    .replace(/[0-9]{2}\/[0-9]{2}/g, '') // Remove datas tipo 10/02
+                    .replace(/\bREM\b/g, '') // <-- NOVO: Remove "REM" solto
+                    .replace(/REMETENTE/g, '') // <-- NOVO: Remove "REMETENTE"
+                    .replace(/\bEV\b/g, '')
+                    .replace(/[0-9]{2}\/[0-9]{2}/g, '') // Remove datas
                     .replace(/[-:]/g, ' ')
                     .trim()
-                    .replace(/\s+/g, ' '); // Remove múltiplos espaços
+                    .replace(/\s+/g, ' ');
 
                 if (cleanName) {
                     const primeiroNome = cleanName.split(' ')[0];
                     descricao = `PIX - ${primeiroNome}`;
                 } else {
-                    // Se o regex limpou tudo, era só um "TRANSFE" isolado do banco
                     if (valor > 0) {
                         descricao = "PIX - INVESTIMENTO";
                         foundCategoryId = getCategoriaId("RENDA FIXA");
@@ -143,7 +150,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 if (descricao.includes("UBER") || cleanName.includes("UBER")) {
                     foundCategoryId = getCategoriaId("TRANSPORTE");
                 } else if (descricao === "PIX - INVESTIMENTO") {
-                    // Categoria já foi setada como Renda Fixa logo acima, ignora o fallback
+                    // Mantém Renda Fixa
                 } else {
                     const isEmpresa = descricao.match(/(LTDA|S\.A|PAGAMENTOS|PAGSEGURO|MERCADO PAGO|IFOOD|99APP|INSTITUICAO|BANK|BANCO)/);
                     if (!isEmpresa) {
@@ -152,12 +159,12 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 }
             }
 
-            // 7. Regra global: Tudo que tem INVEST é Renda Fixa
+            // 8. Regra global: Tudo que tem INVEST é Renda Fixa
             if (descricao.includes("INVEST")) {
                 foundCategoryId = getCategoriaId("RENDA FIXA");
             }
 
-            // 8. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
+            // 9. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
             if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVEST") && !isPix && descricao !== "SALARIO") {
                 try {
                     const suggestedName = identifyCategory(descricao);
