@@ -56,71 +56,100 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
 
             // Converter a data do formato OFX (YYYYMMDD...) para Date do JS
             const ano = parseInt(dataPostagem.substring(0, 4));
-            const mes = parseInt(dataPostagem.substring(4, 6)) - 1; // Mês começa em 0 no JS
+            const mes = parseInt(dataPostagem.substring(4, 6)) - 1;
             const dia = parseInt(dataPostagem.substring(6, 8));
-            const dataFormatada = new Date(Date.UTC(ano, mes, dia, 12, 0, 0)); // Meio-dia UTC
+            const dataFormatada = new Date(Date.UTC(ano, mes, dia, 12, 0, 0));
 
             // ==========================================
-            // REGRAS DE LIMPEZA E FORMATAÇÃO (SEU PADRÃO)
+            // REGRAS DE LIMPEZA E FORMATAÇÃO
             // ==========================================
             let isPix = descricao.includes('PIX');
-
-            if (isPix) {
-                // Limpa lixos bancários comuns
-                let cleanName = descricao
-                    .replace(/PIX\s*QR\s*CODE\s*DINAMICO/g, '')
-                    .replace(/PIX\s*TRANSF/g, '')
-                    .replace(/PIX\s*ENVIADO/g, '')
-                    .replace(/PIX\s*RECEBIDO/g, '')
-                    .replace(/DES:/g, '')
-                    .replace(/NOME:/g, '')
-                    .replace(/[0-9]{2}\/[0-9]{2}/g, '') // Remove datas soltas ex: 07/03
-                    .replace(/[-:]/g, ' ')
-                    .trim()
-                    .replace(/\s+/g, ' '); // Remove espaços duplos
-
-                descricao = cleanName ? `PIX - ${cleanName}` : "PIX";
-            }
-
-            // ==========================================
-            // ATRIBUIÇÃO AUTOMÁTICA DE CATEGORIA E TIPO
-            // ==========================================
             let foundCategoryId = defaultCategory?.id;
             let overrideType: "Investimento" | "Receita" | null = null;
 
-            // 1. Regra: Arthur Augusto (Investimentos)
-            if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA")) {
+            // Função auxiliar para buscar categoria ignorando acentos
+            const getCategoriaId = (nomeDesejado: string) => {
+                const normalizar = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+                const cat = categories.find((c: any) => normalizar(c.name) === normalizar(nomeDesejado));
+                return cat ? cat.id : foundCategoryId;
+            };
+
+            // 1. Regra: Salário
+            if (descricao.includes("PAG DIVERSO/DRH") || descricao.includes("PAG DIVERSO")) {
+                descricao = "SALARIO";
+                foundCategoryId = getCategoriaId("SALARIO");
+            }
+            // 2. Regra: Cruzeiro do Sul
+            else if (descricao.includes("CRUZEIRO DO SUL")) {
+                descricao = "PIX - CRUZEIRO DO SUL EDUCA";
+                foundCategoryId = getCategoriaId("EDUCACAO");
+            }
+            // 3. Regra: Serginho Team
+            else if (descricao.includes("SERGINHO TEAM")) {
+                descricao = "PIX - SERGINHO TEAM";
+                foundCategoryId = getCategoriaId("ACADEMIA");
+            }
+            // 4. Regra: Cartão de Débito Visa Electron
+            else if (descricao.includes("CARTAO VISA ELECTRON")) {
+                let loja = descricao.replace(/CARTAO VISA ELECTRON/g, '').replace(/[-:]/g, ' ').trim();
+                descricao = `CARTÃO DEBITO - ${loja}`;
+            }
+            // 5. Regra: Arthur Augusto (Investimentos)
+            else if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA")) {
                 if (valor < 0) {
                     descricao = "INVESTIMENTO INTER";
                     overrideType = "Investimento";
-                    const rfCat = categories.find((c: any) => c.name.toUpperCase() === "RENDA FIXA");
-                    if (rfCat) foundCategoryId = rfCat.id;
                 } else {
                     descricao = "INVESTIMENTO";
                     overrideType = "Receita";
                 }
             }
-            // 2. Regra: Uber (Transporte)
-            else if (descricao.includes("UBER")) {
-                const transCat = categories.find((c: any) => c.name.toUpperCase() === "TRANSPORTE");
-                if (transCat) foundCategoryId = transCat.id;
-            }
-            // 3. Regra: PIX para Pessoa Física (Lazer)
+            // 6. Regras Gerais de PIX (Pega só o primeiro nome)
             else if (isPix) {
-                // Heurística: Se é PIX e NÃO contém termos de empresa, assumimos que é uma pessoa (Lazer)
-                const isEmpresa = descricao.match(/(LTDA|S\.A|PAGAMENTOS|PAGSEGURO|MERCADO PAGO|IFOOD|99APP|INSTITUICAO|BANK|BANCO)/);
-                if (!isEmpresa) {
-                    const lazerCat = categories.find((c: any) => c.name.toUpperCase() === "LAZER");
-                    if (lazerCat) foundCategoryId = lazerCat.id;
+                // Remove todos os lixos de texto do PIX
+                let cleanName = descricao
+                    .replace(/PIX\s*QR\s*CODE\s*DINAMICO/g, '')
+                    .replace(/PIX\s*QRCODE\s*DIN/g, '')
+                    .replace(/PIX\s*TRANSF/g, '')
+                    .replace(/TRANSFERENCIA\s*PIX/g, '')
+                    .replace(/PIX\s*ENVIADO/g, '')
+                    .replace(/PIX\s*RECEBIDO/g, '')
+                    .replace(/DES:/g, '')
+                    .replace(/NOME:/g, '')
+                    .replace(/[0-9]{2}\/[0-9]{2}/g, '')
+                    .replace(/[-:]/g, ' ')
+                    .trim()
+                    .replace(/\s+/g, ' ');
+
+                if (cleanName) {
+                    // Mágica para pegar só o primeiro nome (ex: "UBER DO BRASIL" vira "UBER", "JOAO SILVA" vira "JOAO")
+                    const primeiroNome = cleanName.split(' ')[0];
+                    descricao = `PIX - ${primeiroNome}`;
+                } else {
+                    descricao = "PIX";
+                }
+
+                // Corrige categoria do Uber e fallback para pessoas (Lazer)
+                if (descricao.includes("UBER") || cleanName.includes("UBER")) {
+                    foundCategoryId = getCategoriaId("TRANSPORTE");
+                } else {
+                    const isEmpresa = descricao.match(/(LTDA|S\.A|PAGAMENTOS|PAGSEGURO|MERCADO PAGO|IFOOD|99APP|INSTITUICAO|BANK|BANCO)/);
+                    if (!isEmpresa) {
+                        foundCategoryId = getCategoriaId("LAZER");
+                    }
                 }
             }
 
-            // 4. Fallback: Se nenhuma regra acima pegou, tenta o categorizer padrão
-            if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVESTIMENTO") && !isPix) {
+            // 7. Regra global: Tudo que tem INVEST é Renda Fixa
+            if (descricao.includes("INVEST")) {
+                foundCategoryId = getCategoriaId("RENDA FIXA");
+            }
+
+            // 8. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
+            if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVEST") && !isPix && descricao !== "SALARIO") {
                 try {
                     const suggestedName = identifyCategory(descricao);
-                    const matchedCat = categories.find((c: any) => c.name.toUpperCase() === suggestedName.toUpperCase());
-                    if (matchedCat) foundCategoryId = matchedCat.id;
+                    foundCategoryId = getCategoriaId(suggestedName);
                 } catch (e) {}
             }
 
