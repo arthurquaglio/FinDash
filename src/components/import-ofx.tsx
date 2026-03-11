@@ -63,7 +63,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             // ==========================================
             // REGRAS DE LIMPEZA E FORMATAÇÃO
             // ==========================================
-            let isPix = descricao.includes('PIX');
+            let isPix = descricao.includes('PIX') || descricao.includes('TRANSFE');
             let foundCategoryId = defaultCategory?.id;
             let overrideType: "Investimento" | "Receita" | null = null;
 
@@ -96,47 +96,54 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             }
             // 5. Regra: Arthur Augusto (Investimentos)
             else if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA")) {
+                foundCategoryId = getCategoriaId("RENDA FIXA");
+
                 if (valor < 0) {
                     descricao = "INVESTIMENTO INTER";
                     overrideType = "Investimento";
                 } else {
                     descricao = "PIX - INVESTIMENTO";
-                    foundCategoryId = getCategoriaId("RENDA FIXA");
                     overrideType = "Receita";
                 }
             }
-            // 6. Regra: PIX recebidos (feitos para mim) que vinham como TRANSFE
-            else if (isPix && valor > 0 && descricao.includes("TRANSFE")) {
-                descricao = "PIX - INVESTIMENTO";
-                foundCategoryId = getCategoriaId("RENDA FIXA");
-            }
-            // 7. Regras Gerais de PIX (Pega só o primeiro nome)
+            // 6. Regras Gerais de PIX (Limpa lixos e pega só o primeiro nome)
             else if (isPix) {
                 // Remove todos os lixos de texto do PIX
                 let cleanName = descricao
                     .replace(/PIX\s*QR\s*CODE\s*DINAMICO/g, '')
                     .replace(/PIX\s*QRCODE\s*DIN/g, '')
-                    .replace(/PIX\s*TRANSF/g, '')
+                    .replace(/TRANSFE\s*PIX/g, '')
+                    .replace(/PIX\s*TRANSF[A-Z]*/g, '')
                     .replace(/TRANSFERENCIA\s*PIX/g, '')
+                    .replace(/TRANSFE/g, '')
                     .replace(/PIX\s*ENVIADO/g, '')
                     .replace(/PIX\s*RECEBIDO/g, '')
                     .replace(/DES:/g, '')
                     .replace(/NOME:/g, '')
-                    .replace(/[0-9]{2}\/[0-9]{2}/g, '')
+                    .replace(/\bEV\b/g, '') // Remove o "EV" isolado
+                    .replace(/[0-9]{2}\/[0-9]{2}/g, '') // Remove datas tipo 10/02
                     .replace(/[-:]/g, ' ')
                     .trim()
-                    .replace(/\s+/g, ' ');
+                    .replace(/\s+/g, ' '); // Remove múltiplos espaços
 
                 if (cleanName) {
                     const primeiroNome = cleanName.split(' ')[0];
                     descricao = `PIX - ${primeiroNome}`;
                 } else {
-                    descricao = "PIX";
+                    // Se o regex limpou tudo, era só um "TRANSFE" isolado do banco
+                    if (valor > 0) {
+                        descricao = "PIX - INVESTIMENTO";
+                        foundCategoryId = getCategoriaId("RENDA FIXA");
+                    } else {
+                        descricao = "PIX";
+                    }
                 }
 
                 // Corrige categoria do Uber e fallback para pessoas (Lazer)
                 if (descricao.includes("UBER") || cleanName.includes("UBER")) {
                     foundCategoryId = getCategoriaId("TRANSPORTE");
+                } else if (descricao === "PIX - INVESTIMENTO") {
+                    // Categoria já foi setada como Renda Fixa logo acima, ignora o fallback
                 } else {
                     const isEmpresa = descricao.match(/(LTDA|S\.A|PAGAMENTOS|PAGSEGURO|MERCADO PAGO|IFOOD|99APP|INSTITUICAO|BANK|BANCO)/);
                     if (!isEmpresa) {
@@ -145,12 +152,12 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 }
             }
 
-            // 8. Regra global: Tudo que tem INVEST é Renda Fixa
+            // 7. Regra global: Tudo que tem INVEST é Renda Fixa
             if (descricao.includes("INVEST")) {
                 foundCategoryId = getCategoriaId("RENDA FIXA");
             }
 
-            // 9. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
+            // 8. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
             if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVEST") && !isPix && descricao !== "SALARIO") {
                 try {
                     const suggestedName = identifyCategory(descricao);
@@ -272,7 +279,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                                     className="w-6 h-6 accent-emerald-500 rounded cursor-pointer shrink-0 mt-1 xl:mt-0"
                                 />
                                 <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-4 w-full items-center">
-                                    {/* Edição de Data */}
                                     <div className="xl:col-span-2">
                                         <input
                                             type="date"
@@ -287,7 +293,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                                             className="w-full bg-zinc-800 border border-zinc-700 hover:border-emerald-500/50 rounded-lg p-2.5 text-sm text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
                                         />
                                     </div>
-                                    {/* Edição de Nome */}
                                     <div className="xl:col-span-4">
                                         <input
                                             type="text"
@@ -298,11 +303,9 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                                             placeholder="Nome da transação"
                                         />
                                     </div>
-                                    {/* Valor Fixo */}
                                     <div className={`xl:col-span-2 text-base font-bold xl:text-right ${tx.value > 0 ? 'text-blue-400' : 'text-red-400'}`}>
                                         {tx.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                     </div>
-                                    {/* Select de Categoria */}
                                     <div className="xl:col-span-2">
                                         <select
                                             value={tx.categoryId}
@@ -315,7 +318,6 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                                             ))}
                                         </select>
                                     </div>
-                                    {/* Select de Cartão */}
                                     <div className="xl:col-span-2">
                                         <select
                                             value={tx.creditCardId || ""}
