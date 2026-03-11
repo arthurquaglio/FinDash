@@ -51,7 +51,6 @@ export default async function FinanceDashboard({
     where: { ...userFilter }
   });
 
-  // NOVO: Busca as Caixinhas do usuário
   const userGoals = await prisma.goal.findMany({
     where: { ...userFilter },
     orderBy: { name: 'asc' }
@@ -117,9 +116,15 @@ export default async function FinanceDashboard({
       })
   );
 
-  const totalBalance = periodTransactions
-      .filter((t) => t.creditCardId === null)
-      .reduce((acc, curr) => acc + curr.value, 0);
+  // NOVO: Calcula o Saldo Total (ignorando o filtro de mês) diretamente do banco
+  const allTimeBalanceResult = await prisma.transaction.aggregate({
+    where: {
+      ...userFilter,
+      creditCardId: null, // Ignora cartão de crédito no saldo
+    },
+    _sum: { value: true }
+  });
+  const totalBalance = allTimeBalanceResult._sum.value || 0;
 
   const periodExpenses = expensesTransactions.reduce((acc, curr) => acc + Math.abs(curr.value), 0);
   const periodIncome = incomeTransactions.reduce((acc, curr) => acc + curr.value, 0);
@@ -128,11 +133,11 @@ export default async function FinanceDashboard({
       .filter(t => t.type.name === "Investimento")
       .reduce((acc, curr) => acc + Math.abs(curr.value), 0);
 
+  // NOVO: Removido o 'Saldo' do gráfico
   const chartData = [
     { name: "Entradas", value: periodIncome, fill: "#60a5fa" },
     { name: "Gastos", value: periodExpenses, fill: "#f87171" },
     { name: "Investido", value: totalInvested, fill: "#3b82f6" },
-    { name: "Saldo", value: totalBalance > 0 ? totalBalance : 0, fill: "#10b981" },
   ];
 
   const recentTransactions = periodTransactions.slice(0, 10);
@@ -195,24 +200,22 @@ export default async function FinanceDashboard({
             <div className="lg:col-span-1 flex flex-col gap-4">
               <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
                 <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Entradas {periodLabel}</CardTitle></CardHeader>
-                <CardContent><div className="text-3xl font-bold text-blue-400 font-mono">R$ {periodIncome.toLocaleString('pt-BR')}</div></CardContent>
+                <CardContent><div className="text-3xl font-bold text-blue-400 font-mono">R$ {periodIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
               </Card>
 
               <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
                 <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Saídas {periodLabel}</CardTitle></CardHeader>
-                <CardContent><div className="text-3xl font-bold text-red-400 font-mono">R$ {periodExpenses.toLocaleString('pt-BR')}</div></CardContent>
+                <CardContent><div className="text-3xl font-bold text-red-400 font-mono">R$ {periodExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
               </Card>
 
+              {/* NOVO: Saldo da Conta sempre exibe o total com 2 casas decimais */}
               <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
-                <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo da Conta {periodLabel}</CardTitle></CardHeader>
-                <CardContent><div className="text-3xl font-bold text-emerald-500">R$ {totalBalance.toLocaleString('pt-BR')}</div></CardContent>
+                <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo da Conta (Total)</CardTitle></CardHeader>
+                <CardContent><div className="text-3xl font-bold text-emerald-500">R$ {totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
               </Card>
             </div>
           </div>
 
-          {/* ========================================== */}
-          {/* NOVO: CAIXINHAS DE OBJETIVOS               */}
-          {/* ========================================== */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
@@ -254,7 +257,6 @@ export default async function FinanceDashboard({
                               />
                             </div>
 
-                            {/* Formulário rápido para Guardar Dinheiro que aparece ao passar o rato (hover) */}
                             <form action={async (formData) => {
                               "use server";
                               const val = Number(formData.get("amount"));
@@ -279,9 +281,6 @@ export default async function FinanceDashboard({
             )}
           </div>
 
-          {/* ========================================== */}
-          {/* ATUALIZADO: Limites de Gastos (Budgets)      */}
-          {/* ========================================== */}
           {budgetStatus.length > 0 && (
               <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
                 <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Limites de Gastos</CardTitle></CardHeader>

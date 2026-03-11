@@ -17,6 +17,9 @@ export function DashboardCharts({ data }: { data: any[] }) {
                             ))}
                         </Pie>
                         <Tooltip
+                            formatter={(value: any) =>
+                                new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(value) || 0)
+                            }
                             contentStyle={{ backgroundColor: "#18181b", border: "1px solid #27272a", borderRadius: "8px" }}
                             itemStyle={{ color: "#fff" }}
                         />
