@@ -55,8 +55,13 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             // ==========================================
             // EXCLUSÃO DE TRANSAÇÕES IGNORADAS
             // ==========================================
-            if (descricao.includes("RESG.AUTOM.INVEST") || descricao.includes("RESGATE INVEST")) {
-                continue; // Pula essa transação completamente, ela não vai para a lista
+            if (
+                descricao.includes("RESG.AUTOM.INVEST") ||
+                descricao.includes("RESGATE INVEST") ||
+                descricao.includes("APL.INVEST FAC") ||
+                descricao.includes("RESGATE INV FAC")
+            ) {
+                continue; // Pula essas transações, elas não vão para a lista
             }
 
             const valor = parseFloat(valorStr);
@@ -88,7 +93,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             }
             // 2. Regra: Cruzeiro do Sul
             else if (descricao.includes("CRUZEIRO DO SUL")) {
-                descricao = "PIX - CRUZEIRO DO SUL"; // Alterado conforme pedido
+                descricao = "PIX - CRUZEIRO DO SUL";
                 foundCategoryId = getCategoriaId("EDUCACAO");
             }
             // 3. Regra: Serginho Team
@@ -96,12 +101,24 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 descricao = "PIX - SERGINHO TEAM";
                 foundCategoryId = getCategoriaId("ACADEMIA");
             }
-            // 4. Regra: Cartão de Débito Visa Electron
-            else if (descricao.includes("CARTAO VISA ELECTRON")) {
-                let loja = descricao.replace(/CARTAO VISA ELECTRON/g, '').replace(/[-:]/g, ' ').trim();
-                descricao = `CARTÃO DEBITO - ${loja}`;
+            // 4. Regra: Metrô (Cartão de Débito)
+            else if (descricao.includes("PMBMETRO") || descricao.includes("TOP SP TAR")) {
+                descricao = "CARTÃO DÉBITO - METRO";
+                foundCategoryId = getCategoriaId("TRANSPORTE");
             }
-            // 5. Regra: Arthur Augusto (Investimentos)
+            // 5. Regra: Cartão de Débito Visa Electron Geral
+            else if (descricao.includes("VISA ELECTRON") || descricao.includes("CARTAO VISA ELECTRON")) {
+                let loja = descricao
+                    .replace(/CARTAO VISA ELECTRON/g, '')
+                    .replace(/VISA ELECTRON/g, '')
+                    .replace(/[0-9]{2}\/[0-9]{2}/g, '') // Remove datas soltas tipo 30/01
+                    .replace(/[-:]/g, ' ')
+                    .trim()
+                    .replace(/\s+/g, ' '); // Remove múltiplos espaços
+
+                descricao = `CARTÃO DÉBITO - ${loja}`;
+            }
+            // 6. Regra: Arthur Augusto (Investimentos)
             else if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA")) {
                 foundCategoryId = getCategoriaId("RENDA FIXA");
 
@@ -113,7 +130,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                     overrideType = "Receita";
                 }
             }
-            // 6. Regras Gerais de PIX (Limpa lixos e pega só o primeiro nome)
+            // 7. Regras Gerais de PIX (Limpa lixos e pega só o primeiro nome)
             else if (isPix) {
                 // Remove todos os lixos de texto do PIX
                 let cleanName = descricao
@@ -139,7 +156,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                     const primeiroNome = cleanName.split(' ')[0];
                     descricao = `PIX - ${primeiroNome}`;
                 } else {
-                    // Se não sobrou nome nenhum, é apenas um PIX (regra de renda fixa apagada aqui)
+                    // Se não sobrou nome nenhum, é apenas um PIX
                     descricao = "PIX";
                 }
 
@@ -154,12 +171,12 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 }
             }
 
-            // 7. Regra global: Tudo que tem INVEST é Renda Fixa
+            // 8. Regra global: Tudo que tem INVEST é Renda Fixa
             if (descricao.includes("INVEST")) {
                 foundCategoryId = getCategoriaId("RENDA FIXA");
             }
 
-            // 8. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
+            // 9. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
             if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVEST") && !isPix && descricao !== "SALARIO") {
                 try {
                     const suggestedName = identifyCategory(descricao);
