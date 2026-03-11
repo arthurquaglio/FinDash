@@ -371,3 +371,47 @@ export async function deleteGoal(id: string) {
         return { error: "Erro ao apagar a caixinha." };
     }
 }
+
+export async function importReviewedTransactions(transactions: any[]) {
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) {
+        return { error: "Por favor, selecione um perfil antes de importar o extrato." };
+    }
+
+    const types = await prisma.transactionType.findMany();
+    const gastoType = types.find(t => t.name === "Gasto");
+    const receitaType = types.find(t => t.name === "Receita");
+
+    if (!gastoType || !receitaType) {
+        return { error: "Tipos de transação não encontrados. Rode o SEED." };
+    }
+
+    const dataToSave = transactions.map(t => {
+        const isNegative = t.value < 0;
+        return {
+            name: t.name,
+            value: t.value,
+            // Certificando que a data vai no formato correto
+            date: new Date(t.date),
+            categoryId: t.categoryId,
+            typeId: isNegative ? gastoType.id : receitaType.id,
+            userId: activeProfileId,
+            creditCardId: t.creditCardId || null,
+        };
+    });
+
+    try {
+        await prisma.transaction.createMany({
+            data: dataToSave,
+            skipDuplicates: true,
+        });
+        revalidatePath("/");
+        revalidatePath("/gastos");
+        return { success: true };
+    } catch (error) {
+        console.error("Erro no Prisma:", error);
+        return { error: "Erro ao salvar no banco. Verifique os dados." };
+    }
+}

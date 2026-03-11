@@ -18,6 +18,11 @@ export default async function GastosPage({
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
+
+    const userCreditCards = await prisma.creditCard.findMany({
+        where: activeProfileId ? { userId: activeProfileId } : {}
+    });
+
     // CRIAR O FILTRO DE USUÁRIO
     const userFilter = activeProfileId ? { userId: activeProfileId } : {};
 
@@ -67,7 +72,7 @@ export default async function GastosPage({
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <ImportCSV/>
+                            <ImportCSV categories={categories} creditCards={userCreditCards} />
                         </div>
                     </div>
 
