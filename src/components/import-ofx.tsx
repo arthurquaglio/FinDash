@@ -81,7 +81,7 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
             }
             // 2. Regra: Cruzeiro do Sul
             else if (descricao.includes("CRUZEIRO DO SUL")) {
-                descricao = "PIX - CRUZEIRO DO SUL EDUCA";
+                descricao = "PIX - CRUZEIRO DO SUL";
                 foundCategoryId = getCategoriaId("EDUCACAO");
             }
             // 3. Regra: Serginho Team
@@ -94,8 +94,12 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
                 let loja = descricao.replace(/CARTAO VISA ELECTRON/g, '').replace(/[-:]/g, ' ').trim();
                 descricao = `CARTÃO DEBITO - ${loja}`;
             }
+            else if (descricao.includes("VISA ELECTRON")) {
+                let loja = descricao.replace(/VISA ELECTRON/g, '').replace(/[-:]/g, ' ').trim();
+                descricao = `CARTÃO DEBITO - ${loja}`;
+            }
             // 5. Regra: Arthur Augusto (Investimentos)
-            else if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA")) {
+            else if (descricao.includes("ARTHUR AUGUSTO QUAGLIO LIMA")) {
                 if (valor < 0) {
                     descricao = "INVESTIMENTO INTER";
                     overrideType = "Investimento";
@@ -142,6 +146,9 @@ export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
 
             // 7. Regra global: Tudo que tem INVEST é Renda Fixa
             if (descricao.includes("INVEST")) {
+                foundCategoryId = getCategoriaId("RENDA FIXA");
+            }
+            if (descricao.includes("INV")) {
                 foundCategoryId = getCategoriaId("RENDA FIXA");
             }
 

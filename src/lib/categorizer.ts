@@ -3,7 +3,6 @@
 
 export const categoryMap: Record<string, string[]> = {
     "Transporte": [
-        "pix qr code dinamico", // A sua nova regra aqui!
         "uber",
         "99app",
         "posto",
