@@ -1,7 +1,7 @@
 // src/app/gastos/page.tsx
 import { prisma } from "@/lib/prisma";
 import { ReceiptText } from "lucide-react";
-import { ImportCSV } from "@/components/import-csv";
+import { ImportOFX } from "@/components/import-ofx";
 import { Filters } from "@/components/ui/filters";
 import { cookies } from "next/headers";
 import { TransactionTableClient } from "@/components/transaction-table-client"; // <-- A SUA NOVA IMPORTAÇÃO AQUI!
@@ -72,7 +72,7 @@ export default async function GastosPage({
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <ImportCSV categories={categories} creditCards={userCreditCards} />
+                            <ImportOFX categories={categories} creditCards={userCreditCards} />
                         </div>
                     </div>
 

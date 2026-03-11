@@ -1,14 +1,58 @@
 // src/lib/categorizer.ts
+// noinspection SpellCheckingInspection
 
 export const categoryMap: Record<string, string[]> = {
-    "Alimentação": ["MERCADO", "IFOOD", "RESTAURANTE", "PADARIA", "AÇOUGUE", "DINAMICO", "PIX QR CODE"],
-    "Moradia": ["ALUGUEL", "CONDOMINIO", "CPFL", "ENEL", "SABESP", "VIVO", "CLARO", "INTERNET"],
-    "Salário": ["PAGAMENTOS DIVERSOS DRH", "SALARIO", "PROVENTOS"],
-    "Renda Fixa": ["FACILCRED", "RENTAB", "INVEST", "TESOURO", "CDB"],
-    "Lazer": ["NETFLIX", "SPOTIFY", "CINEMA", "STEAM", "BAR", "CERVEJARIA", "COFFEE", "VISA ELECTRON"],
-    "Educação": ["FACULDADE", "CURSO", "SCHOOL", "UDEMY", "ALURA", "LIVRARIA", "ESCOLA"],
-    "Academia": ["SMARTFIT", "BLUEFIT", "GYMPASS", "ACADEMIA", "FITNESS", "CROSSFIT"],
-    "Transporte": ["UBER", "99APP", "POSTO", "COMBUSTIVEL", "SHELL", "IPIRANGA", "PEDAGIO"],
+    "Transporte": [
+        "pix qr code dinamico", // A sua nova regra aqui!
+        "uber",
+        "99app",
+        "posto",
+        "concessionaria"
+    ],
+    "Alimentação": [
+        "ifood",
+        "rappi",
+        "padaria",
+        "restaurante",
+        "lanchonete"
+    ],
+    "Supermercado": [
+        "supermercado",
+        "atacadao",
+        "carrefour",
+        "pao de acucar",
+        "assai"
+    ],
+    "Saúde": [
+        "farmacia",
+        "drogaria",
+        "droga raia",
+        "pague menos",
+        "unimed"
+    ],
+    "Lazer": [
+        "netflix",
+        "spotify",
+        "cinema",
+        "prime video"
+    ],
+    "Moradia": [
+        "enel",
+        "sabesp",
+        "condominio",
+        "aluguel"
+    ],
+    "Salário": [
+        "pagamentos diversos drh",
+        "salario",
+        "adiantamento"
+    ],
+    "Investimentos": [
+        "rentab.invest",
+        "criptoativos",
+        "rendimento",
+        "cdb"
+    ]
 };
 
 export function identifyCategory(description: string): string {

@@ -1,15 +1,13 @@
-// src/components/import-csv.tsx
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { FileUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Papa from "papaparse";
 import { importReviewedTransactions } from "@/app/actions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { identifyCategory } from "@/lib/categorizer";
 
-interface ImportCSVProps {
+interface ImportOFXProps {
     categories: any[];
     creditCards: any[];
 }
@@ -24,19 +22,65 @@ type ParsedTransaction = {
     selected: boolean;
 };
 
-export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
+export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
     const [isImporting, setIsImporting] = useState(false);
     const [isReviewing, setIsReviewing] = useState(false);
     const [parsedData, setParsedData] = useState<ParsedTransaction[]>([]);
 
-    const parseBrValue = (val: string) => {
-        if (!val || val.trim() === "" || val === "0,00") return 0;
-        return parseFloat(val.replace(/\./g, "").replace(",", "."));
-    };
+    // Motor de leitura OFX
+    const processarOFX = (textoOFX: string) => {
+        const transacoes: ParsedTransaction[] = [];
+        const regexBloco = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
 
-    const parseBrDate = (dateStr: string) => {
-        const [day, month, year] = dateStr.split("/").map(Number);
-        return new Date(year, month - 1, day);
+        const extrairValor = (tag: string, texto: string) => {
+            const regex = new RegExp(`<${tag}>([^<\\r\\n]+)`);
+            const match = texto.match(regex);
+            return match ? match[1].trim() : null;
+        };
+
+        const defaultCategory = categories[0];
+
+        let match;
+        while ((match = regexBloco.exec(textoOFX)) !== null) {
+            const bloco = match[1];
+
+            const dataPostagem = extrairValor('DTPOSTED', bloco); // Ex: 20260309000000[-03:EST]
+            const valorStr = extrairValor('TRNAMT', bloco);
+            const descricao = extrairValor('MEMO', bloco) || extrairValor('NAME', bloco) || "Transação Desconhecida";
+            const idTransacao = extrairValor('FITID', bloco) || `temp-${Math.random()}`;
+
+            if (!dataPostagem || !valorStr) continue;
+
+            const valor = parseFloat(valorStr);
+
+            // Converter a data do formato OFX (YYYYMMDD...) para Date do JS
+            const ano = parseInt(dataPostagem.substring(0, 4));
+            const mes = parseInt(dataPostagem.substring(4, 6)) - 1; // Mês começa em 0 no JS
+            const dia = parseInt(dataPostagem.substring(6, 8));
+            const dataFormatada = new Date(Date.UTC(ano, mes, dia, 12, 0, 0)); // Meio-dia UTC para evitar fuso horário puxando 1 dia para trás
+
+            // Categorização Automática Inteligente
+            let foundCategoryId = defaultCategory?.id;
+            try {
+                const suggestedName = identifyCategory(descricao);
+                const matchedCat = categories.find((c: any) => c.name.toLowerCase() === suggestedName.toLowerCase());
+                if (matchedCat) foundCategoryId = matchedCat.id;
+            } catch (e) {
+                // Silencioso se falhar
+            }
+
+            transacoes.push({
+                id: idTransacao,
+                date: dataFormatada,
+                name: descricao,
+                value: valor,
+                categoryId: foundCategoryId,
+                creditCardId: null,
+                selected: true,
+            });
+        }
+
+        return transacoes;
     };
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -44,60 +88,24 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
         if (!file) return;
 
         setIsImporting(true);
+        const reader = new FileReader();
 
-        Papa.parse(file, {
-            delimiter: ";",
-            skipEmptyLines: true,
-            complete: async (results) => {
-                const dataStartIndex = results.data.findIndex((row: any) => row[0] === "Data");
-                if (dataStartIndex === -1) {
-                    alert("Formato de extrato Bradesco não reconhecido.");
-                    setIsImporting(false);
-                    return;
+        reader.onload = (e) => {
+            const conteudo = e.target?.result as string;
+            if (conteudo) {
+                const dadosProcessados = processarOFX(conteudo);
+                if (dadosProcessados.length === 0) {
+                    alert("Nenhuma transação encontrada ou formato OFX inválido.");
+                } else {
+                    setParsedData(dadosProcessados);
+                    setIsReviewing(true);
                 }
+            }
+            setIsImporting(false);
+            event.target.value = ''; // Limpa o input
+        };
 
-                const rawRows = results.data.slice(dataStartIndex + 1);
-                const defaultCategory = categories[0];
-
-                const formattedData: ParsedTransaction[] = rawRows
-                    .map((row: any, index: number) => {
-                        const dataStr = row[0];
-                        const historico = row[1];
-                        const credito = parseBrValue(row[3]);
-                        const debito = parseBrValue(row[4]);
-
-                        if (!dataStr || dataStr.includes("/") === false || historico.includes("Total")) return null;
-
-                        const value = credito > 0 ? credito : -debito;
-
-                        let foundCategoryId = defaultCategory?.id;
-                        try {
-                            const suggestedName = identifyCategory(historico);
-                            const matchedCat = categories.find((c: any) => c.name.toLowerCase() === suggestedName.toLowerCase());
-                            if (matchedCat) foundCategoryId = matchedCat.id;
-                        } catch (e) {
-                            // Silencioso se falhar
-                        }
-
-                        return {
-                            id: `temp-${index}`,
-                            date: parseBrDate(dataStr),
-                            name: historico,
-                            value: value,
-                            categoryId: foundCategoryId,
-                            creditCardId: null,
-                            selected: true,
-                        };
-                    })
-                    .filter((t: any) => t !== null && t.value !== 0) as ParsedTransaction[];
-
-                setParsedData(formattedData);
-                setIsReviewing(true);
-                setIsImporting(false);
-
-                event.target.value = '';
-            },
-        });
+        reader.readAsText(file);
     };
 
     const updateTransaction = (id: string, field: keyof ParsedTransaction, value: any) => {
@@ -125,17 +133,18 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
         setIsImporting(false);
     };
 
+    // O retorno (JSX) permanece idêntico ao seu modal de revisão que já estava perfeito
     return (
         <div>
             <input
                 type="file"
-                accept=".csv"
+                accept=".ofx"
                 onChange={handleFileUpload}
                 className="hidden"
-                id="csv-upload"
+                id="ofx-upload"
                 disabled={isImporting}
             />
-            <label htmlFor="csv-upload">
+            <label htmlFor="ofx-upload">
                 <Button
                     variant="outline"
                     asChild
@@ -143,16 +152,16 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                 >
                     <span>
                         {isImporting && !isReviewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
-                        {isImporting && !isReviewing ? "Lendo arquivo..." : "Importar Bradesco"}
+                        {isImporting && !isReviewing ? "Lendo arquivo..." : "Importar OFX"}
                     </span>
                 </Button>
             </label>
 
             <Dialog open={isReviewing} onOpenChange={setIsReviewing}>
-                {/* sm:max-w-[95vw] FORÇA o modal a ficar com 95% da largura da tela no desktop */}
                 <DialogContent className="sm:max-w-[95vw] w-[95vw] h-[90vh] bg-zinc-950 border-zinc-800 text-zinc-100 flex flex-col p-4 md:p-6">
+                    {/* ... (T0do o seu código de cabeçalho e listagem do Modal fica exatamente igual aqui) ... */}
                     <DialogHeader className="mb-2">
-                        <DialogTitle className="text-2xl font-bold text-emerald-500">Revisão de Extrato</DialogTitle>
+                        <DialogTitle className="text-2xl font-bold text-emerald-500">Revisão de Extrato OFX</DialogTitle>
                         <DialogDescription className="text-zinc-400 text-base">
                             Ajuste os nomes, modifique as datas, selecione as categorias e associe a cartões antes de salvar.
                         </DialogDescription>
@@ -176,7 +185,7 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                                 />
                                 <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-4 w-full items-center">
 
-                                    {/* Edição de Data com Date Picker Nativo */}
+                                    {/* Edição de Data */}
                                     <div className="xl:col-span-2">
                                         <input
                                             type="date"
@@ -204,7 +213,7 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                                         />
                                     </div>
 
-                                    {/* Valor Fixo (Apenas visualização) */}
+                                    {/* Valor Fixo */}
                                     <div className={`xl:col-span-2 text-base font-bold xl:text-right ${tx.value > 0 ? 'text-blue-400' : 'text-red-400'}`}>
                                         {tx.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                     </div>
