@@ -149,74 +149,73 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
             </label>
 
             <Dialog open={isReviewing} onOpenChange={setIsReviewing}>
-                {/* AQUI: max-w-[95vw] para ficar gigante e h-[90vh] para ter bastante altura */}
-                <DialogContent className="max-w-[95vw] w-full h-[90vh] bg-zinc-950 border-zinc-800 text-zinc-100 flex flex-col">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl text-emerald-500">Revisão de Extrato</DialogTitle>
-                        <DialogDescription className="text-zinc-400">
-                            Ajuste os nomes, datas, categorias e associe a cartões antes de salvar.
+                {/* sm:max-w-[95vw] FORÇA o modal a ficar com 95% da largura da tela no desktop */}
+                <DialogContent className="sm:max-w-[95vw] w-[95vw] h-[90vh] bg-zinc-950 border-zinc-800 text-zinc-100 flex flex-col p-4 md:p-6">
+                    <DialogHeader className="mb-2">
+                        <DialogTitle className="text-2xl font-bold text-emerald-500">Revisão de Extrato</DialogTitle>
+                        <DialogDescription className="text-zinc-400 text-base">
+                            Ajuste os nomes, modifique as datas, selecione as categorias e associe a cartões antes de salvar.
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="flex-1 overflow-y-auto pr-2 space-y-2 mt-4 pb-4">
+                    <div className="flex-1 overflow-y-auto pr-2 space-y-3 mt-4 pb-4">
                         {parsedData.map((tx) => (
                             <div
                                 key={tx.id}
-                                className={`flex flex-col md:flex-row items-start md:items-center gap-3 p-3 rounded-lg border transition-colors ${
+                                className={`flex flex-col xl:flex-row items-start xl:items-center gap-4 p-4 rounded-xl border transition-colors ${
                                     tx.selected
-                                        ? 'border-zinc-700 bg-zinc-900/50'
-                                        : 'border-zinc-800/50 bg-zinc-950 opacity-40'
+                                        ? 'border-zinc-700 bg-zinc-900/80 shadow-sm'
+                                        : 'border-zinc-800/50 bg-zinc-950 opacity-50'
                                 }`}
                             >
                                 <input
                                     type="checkbox"
                                     checked={tx.selected}
                                     onChange={(e) => updateTransaction(tx.id, 'selected', e.target.checked)}
-                                    className="w-5 h-5 accent-emerald-500 rounded cursor-pointer shrink-0 mt-1 md:mt-0"
+                                    className="w-6 h-6 accent-emerald-500 rounded cursor-pointer shrink-0 mt-1 xl:mt-0"
                                 />
-                                <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-3 w-full items-center">
+                                <div className="flex-1 grid grid-cols-1 xl:grid-cols-12 gap-4 w-full items-center">
 
-                                    {/* Edição de Data */}
-                                    <div className="md:col-span-2">
+                                    {/* Edição de Data com Date Picker Nativo */}
+                                    <div className="xl:col-span-2">
                                         <input
                                             type="date"
                                             value={tx.date.toISOString().substring(0, 10)}
                                             onChange={(e) => {
                                                 if(e.target.value) {
-                                                    // Força o horário para o meio dia para evitar bugs de fuso horário
                                                     const newDate = new Date(`${e.target.value}T12:00:00Z`);
                                                     updateTransaction(tx.id, 'date', newDate);
                                                 }
                                             }}
                                             disabled={!tx.selected}
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-xs text-zinc-300 focus:ring-emerald-500 outline-none"
+                                            className="w-full bg-zinc-800 border border-zinc-700 hover:border-emerald-500/50 rounded-lg p-2.5 text-sm text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
                                         />
                                     </div>
 
                                     {/* Edição de Nome */}
-                                    <div className="md:col-span-4">
+                                    <div className="xl:col-span-4">
                                         <input
                                             type="text"
                                             value={tx.name}
                                             onChange={(e) => updateTransaction(tx.id, 'name', e.target.value)}
                                             disabled={!tx.selected}
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-xs text-zinc-300 focus:ring-emerald-500 outline-none"
+                                            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none"
                                             placeholder="Nome da transação"
                                         />
                                     </div>
 
                                     {/* Valor Fixo (Apenas visualização) */}
-                                    <div className={`md:col-span-2 text-sm font-bold md:text-right ${tx.value > 0 ? 'text-blue-400' : 'text-red-400'}`}>
+                                    <div className={`xl:col-span-2 text-base font-bold xl:text-right ${tx.value > 0 ? 'text-blue-400' : 'text-red-400'}`}>
                                         {tx.value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                     </div>
 
                                     {/* Select de Categoria */}
-                                    <div className="md:col-span-2">
+                                    <div className="xl:col-span-2">
                                         <select
                                             value={tx.categoryId}
                                             onChange={(e) => updateTransaction(tx.id, 'categoryId', e.target.value)}
                                             disabled={!tx.selected}
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-xs text-zinc-300 focus:ring-emerald-500 outline-none"
+                                            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
                                         >
                                             {categories.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
@@ -225,14 +224,14 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                                     </div>
 
                                     {/* Select de Cartão */}
-                                    <div className="md:col-span-2">
+                                    <div className="xl:col-span-2">
                                         <select
                                             value={tx.creditCardId || ""}
                                             onChange={(e) => updateTransaction(tx.id, 'creditCardId', e.target.value || null)}
                                             disabled={!tx.selected}
-                                            className="w-full bg-zinc-950 border border-zinc-800 rounded p-1.5 text-xs text-zinc-300 focus:ring-emerald-500 outline-none"
+                                            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
                                         >
-                                            <option value="">(Dinheiro / Conta)</option>
+                                            <option value="">(Conta / Dinheiro)</option>
                                             {creditCards.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}
@@ -243,18 +242,19 @@ export function ImportCSV({ categories, creditCards }: ImportCSVProps) {
                         ))}
                     </div>
 
-                    <div className="pt-4 mt-auto border-t border-zinc-800 flex justify-between items-center bg-zinc-950">
-                        <span className="text-sm text-zinc-400">
-                            Selecionadas: <strong className="text-zinc-100">{parsedData.filter(t => t.selected).length}</strong> de {parsedData.length}
+                    <div className="pt-6 mt-auto border-t border-zinc-800 flex justify-between items-center bg-zinc-950">
+                        <span className="text-base text-zinc-400">
+                            Selecionadas: <strong className="text-zinc-100 text-lg">{parsedData.filter(t => t.selected).length}</strong> de {parsedData.length}
                         </span>
-                        <div className="flex gap-3">
-                            <Button variant="ghost" onClick={() => setIsReviewing(false)}>Cancelar</Button>
+                        <div className="flex gap-4">
+                            <Button variant="ghost" size="lg" onClick={() => setIsReviewing(false)}>Cancelar</Button>
                             <Button
+                                size="lg"
                                 onClick={handleConfirmImport}
                                 disabled={isImporting || parsedData.filter(t => t.selected).length === 0}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
                             >
-                                {isImporting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+                                {isImporting ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : null}
                                 Salvar Selecionadas
                             </Button>
                         </div>
