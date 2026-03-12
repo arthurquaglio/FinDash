@@ -154,8 +154,8 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
             // 9. Regras Gerais de PIX (Limpa lixos do Bradesco E do Banco Inter)
             else if (isPix) {
                 let cleanName = descricao
-                    .replace(/PIX RECEBIDO:\s*"CP\s*:[0-9]*-/g, '') // Lixo do Inter Recebido
-                    .replace(/PIX ENVIADO:\s*"CP\s*:[0-9]*-/g, '')  // Lixo do Inter Enviado
+                    .replace(/PIX RECEBIDO:\s*"CP\s*:[0-9]*-/g, '')
+                    .replace(/PIX ENVIADO:\s*"CP\s*:[0-9]*-/g, '')
                     .replace(/PIX\s*QR\s*CODE\s*DINAMICO/g, '')
                     .replace(/PIX\s*QRCODE\s*DIN/g, '')
                     .replace(/TRANSFE\s*PIX/g, '')
@@ -170,20 +170,29 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                     .replace(/REMETENTE/g, '')
                     .replace(/\bEV\b/g, '')
                     .replace(/[0-9]{2}\/[0-9]{2}/g, '')
-                    .replace(/[-:"]/g, ' ') // Agora também remove aspas do Inter
+                    .replace(/[-:"]/g, ' ')
                     .trim()
                     .replace(/\s+/g, ' ');
 
                 if (cleanName) {
                     const primeiroNome = cleanName.split(' ')[0];
-                    descricao = `PIX - ${primeiroNome}`;
+
+                    // A MÁGICA DE CORREÇÃO ESTÁ AQUI:
+                    if (primeiroNome === 'ARTHUR') {
+                        descricao = "TRANSFERÊNCIA DE CONTAS";
+                        foundCategoryId = getCategoriaId("OUTROS");
+                        overrideType = "Transferência";
+                    } else {
+                        descricao = `PIX - ${primeiroNome}`;
+                    }
                 } else {
                     descricao = "PIX";
                 }
 
                 if (descricao.includes("UBER") || cleanName.includes("UBER")) {
                     foundCategoryId = getCategoriaId("TRANSPORTE");
-                } else {
+                } else if (overrideType !== "Transferência") {
+                    // Só aplica a regra de Lazer se NÃO for uma transferência sua
                     const isEmpresa = descricao.match(/(LTDA|S\.A|PAGAMENTOS|PAGSEGURO|MERCADO PAGO|IFOOD|99APP|INSTITUICAO|BANK|BANCO)/);
                     if (!isEmpresa) {
                         foundCategoryId = getCategoriaId("LAZER");
