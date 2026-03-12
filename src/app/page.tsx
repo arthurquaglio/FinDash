@@ -265,7 +265,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                       const diffTime = billDate.getTime() - new Date().setHours(0,0,0,0);
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-                      let dayText = "";
+                      let dayText;
                       if (diffDays === 0) dayText = "Vence Hoje!";
                       else if (diffDays === 1) dayText = "Vence Amanhã";
                       else dayText = `Em ${diffDays} dias`;
