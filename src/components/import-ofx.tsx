@@ -1,6 +1,7 @@
+// src/components/import-ofx.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { FileUp, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { importReviewedTransactions } from "@/app/actions";
@@ -20,14 +21,22 @@ type ParsedTransaction = {
     value: number;
     categoryId: string;
     creditCardId: string | null;
+    bankAccountId: string | null;
     selected: boolean;
-    overrideType?: "Investimento" | "Receita" | null;
+    overrideType?: "Investimento" | "Receita" | "Transferência" | null;
 };
 
 export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXProps) {
     const [isImporting, setIsImporting] = useState(false);
     const [isReviewing, setIsReviewing] = useState(false);
     const [parsedData, setParsedData] = useState<ParsedTransaction[]>([]);
+    const [selectedBankAccountId, setSelectedBankAccountId] = useState<string>("");
+
+    useEffect(() => {
+        if (bankAccounts && bankAccounts.length > 0 && !selectedBankAccountId) {
+            setSelectedBankAccountId(bankAccounts[0].id);
+        }
+    }, [bankAccounts, selectedBankAccountId]);
 
     // Motor de leitura OFX
     const processarOFX = (textoOFX: string) => {
@@ -62,12 +71,11 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                 descricao.includes("APL.INVEST FAC") ||
                 descricao.includes("RESGATE INV FAC")
             ) {
-                continue; // Pula essas transações, elas não vão para a lista
+                continue;
             }
 
             const valor = parseFloat(valorStr);
 
-            // Converter a data do formato OFX (YYYYMMDD...) para Date do JS
             const ano = parseInt(dataPostagem.substring(0, 4));
             const mes = parseInt(dataPostagem.substring(4, 6)) - 1;
             const dia = parseInt(dataPostagem.substring(6, 8));
@@ -78,9 +86,8 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
             // ==========================================
             let isPix = descricao.includes('PIX') || descricao.includes('TRANSFE');
             let foundCategoryId = defaultCategory?.id;
-            let overrideType: "Investimento" | "Receita" | null = null;
+            let overrideType: "Investimento" | "Receita" | "Transferência" | null = null;
 
-            // Função auxiliar para buscar categoria ignorando acentos
             const getCategoriaId = (nomeDesejado: string) => {
                 const normalizar = (str: string) => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
                 const cat = categories.find((c: any) => normalizar(c.name) === normalizar(nomeDesejado));
@@ -112,29 +119,43 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                 let loja = descricao
                     .replace(/CARTAO VISA ELECTRON/g, '')
                     .replace(/VISA ELECTRON/g, '')
-                    .replace(/[0-9]{2}\/[0-9]{2}/g, '') // Remove datas soltas tipo 30/01
+                    .replace(/[0-9]{2}\/[0-9]{2}/g, '')
                     .replace(/[-:]/g, ' ')
                     .trim()
-                    .replace(/\s+/g, ' '); // Remove múltiplos espaços
-
+                    .replace(/\s+/g, ' ');
                 descricao = `CARTÃO DÉBITO - ${loja}`;
             }
-            // 6. Regra: Arthur Augusto (Investimentos)
-            else if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA")) {
-                foundCategoryId = getCategoriaId("RENDA FIXA");
 
-                if (valor < 0) {
-                    descricao = "INVESTIMENTO INTER";
-                    overrideType = "Investimento";
-                } else {
-                    descricao = "PIX - INVESTIMENTO";
-                    overrideType = "Receita";
-                }
+                // ==========================================
+                // REGRAS ESPECÍFICAS DO BANCO INTER
+                // ==========================================
+            // 6. Regra Inter: Aplicação de Investimento
+            else if (descricao.includes("APLICACAO: \"CDB") || descricao.includes("APLICACAO: \"LCI")) {
+                const tipoInvest = descricao.includes("CDB") ? "CDB" : "LCI";
+                descricao = `APLICAÇÃO INTER - ${tipoInvest}`;
+                foundCategoryId = getCategoriaId("RENDA FIXA");
+                overrideType = "Investimento"; // Subtrai da conta, vai pros investimentos
             }
-            // 7. Regras Gerais de PIX (Limpa lixos e pega só o primeiro nome)
+            // 7. Regra Inter: Resgate de Investimento
+            else if (descricao.includes("RESGATE: \"CDB") || descricao.includes("RESGATE: \"LCI")) {
+                const tipoInvest = descricao.includes("CDB") ? "CDB" : "LCI";
+                descricao = `RESGATE INTER - ${tipoInvest}`;
+                foundCategoryId = getCategoriaId("RENDA FIXA");
+                overrideType = "Investimento"; // Soma na conta, subtrai dos investimentos
+            }
+
+            // 8. Regra: Arthur Augusto (Transferências entre contas próprias)
+            else if (descricao.includes("ARTHUR AUGUSTO QUAGLIUO LIMA") || descricao.includes("ARTHUR AUGUSTO QUAGLIO LIMA")) {
+                descricao = "TRANSFERÊNCIA DE CONTAS";
+                foundCategoryId = getCategoriaId("OUTROS"); // Pode deixar em outros ou criar categoria Transferência
+                overrideType = "Transferência"; // NUNCA CONTA COMO GASTO NEM RECEITA!
+            }
+
+            // 9. Regras Gerais de PIX (Limpa lixos do Bradesco E do Banco Inter)
             else if (isPix) {
-                // Remove todos os lixos de texto do PIX
                 let cleanName = descricao
+                    .replace(/PIX RECEBIDO:\s*"CP\s*:[0-9]*-/g, '') // Lixo do Inter Recebido
+                    .replace(/PIX ENVIADO:\s*"CP\s*:[0-9]*-/g, '')  // Lixo do Inter Enviado
                     .replace(/PIX\s*QR\s*CODE\s*DINAMICO/g, '')
                     .replace(/PIX\s*QRCODE\s*DIN/g, '')
                     .replace(/TRANSFE\s*PIX/g, '')
@@ -149,7 +170,7 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                     .replace(/REMETENTE/g, '')
                     .replace(/\bEV\b/g, '')
                     .replace(/[0-9]{2}\/[0-9]{2}/g, '')
-                    .replace(/[-:]/g, ' ')
+                    .replace(/[-:"]/g, ' ') // Agora também remove aspas do Inter
                     .trim()
                     .replace(/\s+/g, ' ');
 
@@ -157,11 +178,9 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                     const primeiroNome = cleanName.split(' ')[0];
                     descricao = `PIX - ${primeiroNome}`;
                 } else {
-                    // Se não sobrou nome nenhum, é apenas um PIX
                     descricao = "PIX";
                 }
 
-                // Corrige categoria do Uber e fallback para pessoas (Lazer)
                 if (descricao.includes("UBER") || cleanName.includes("UBER")) {
                     foundCategoryId = getCategoriaId("TRANSPORTE");
                 } else {
@@ -172,13 +191,13 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                 }
             }
 
-            // 8. Regra global: Tudo que tem INVEST é Renda Fixa
+            // 10. Regra global: Tudo que tem INVEST é Renda Fixa
             if (descricao.includes("INVEST")) {
                 foundCategoryId = getCategoriaId("RENDA FIXA");
             }
 
-            // 9. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
-            if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVEST") && !isPix && descricao !== "SALARIO") {
+            // 11. Fallback: Se não caiu em nenhuma regra, tenta o categorizador geral do arquivo categorizer.ts
+            if (foundCategoryId === defaultCategory?.id && !descricao.includes("INVEST") && !isPix && descricao !== "SALARIO" && !descricao.includes("APLICACAO:") && !descricao.includes("RESGATE:")) {
                 try {
                     const suggestedName = identifyCategory(descricao);
                     foundCategoryId = getCategoriaId(suggestedName);
@@ -192,6 +211,7 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                 value: valor,
                 categoryId: foundCategoryId,
                 creditCardId: null,
+                bankAccountId: selectedBankAccountId,
                 selected: true,
                 overrideType: overrideType
             });
@@ -203,6 +223,11 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
+
+        if (!selectedBankAccountId) {
+            alert("Por favor, selecione uma Conta Bancária antes de importar.");
+            return;
+        }
 
         setIsImporting(true);
         const reader = new FileReader();
@@ -219,7 +244,7 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                 }
             }
             setIsImporting(false);
-            event.target.value = ''; // Limpa o input
+            event.target.value = '';
         };
 
         reader.readAsText(file);
@@ -251,24 +276,35 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
     };
 
     return (
-        <div>
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+            <select
+                value={selectedBankAccountId}
+                onChange={(e) => setSelectedBankAccountId(e.target.value)}
+                className="bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-sm text-zinc-100 outline-none h-10 w-full md:w-48"
+            >
+                <option value="" disabled>Selecione a Conta...</option>
+                {bankAccounts?.map(b => (
+                    <option key={b.id} value={b.id}>🏦 {b.name}</option>
+                ))}
+            </select>
+
             <input
                 type="file"
                 accept=".ofx"
                 onChange={handleFileUpload}
                 className="hidden"
                 id="ofx-upload"
-                disabled={isImporting}
+                disabled={isImporting || !selectedBankAccountId}
             />
-            <label htmlFor="ofx-upload">
+            <label htmlFor="ofx-upload" className="w-full md:w-auto">
                 <Button
                     variant="outline"
                     asChild
-                    className="border-zinc-800 bg-zinc-900/50 hover:bg-emerald-500/10 hover:text-emerald-500 gap-2 cursor-pointer"
+                    className={`w-full border-zinc-800 bg-zinc-900/50 hover:bg-emerald-500/10 hover:text-emerald-500 gap-2 h-10 ${!selectedBankAccountId ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 >
                     <span>
                         {isImporting && !isReviewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileUp className="w-4 h-4" />}
-                        {isImporting && !isReviewing ? "Lendo arquivo..." : "Importar OFX"}
+                        {isImporting && !isReviewing ? "A ler ficheiro..." : "Importar OFX"}
                     </span>
                 </Button>
             </label>
@@ -345,7 +381,7 @@ export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXPr
                                             disabled={!tx.selected}
                                             className="w-full bg-zinc-900 border border-zinc-700 rounded-lg p-2.5 text-sm text-zinc-100 focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
                                         >
-                                            <option value="">(Conta / Dinheiro)</option>
+                                            <option value="">(Conta Corrente)</option>
                                             {creditCards.map(c => (
                                                 <option key={c.id} value={c.id}>{c.name}</option>
                                             ))}

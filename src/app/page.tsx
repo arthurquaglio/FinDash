@@ -133,9 +133,10 @@ export default async function FinanceDashboard({
   const periodExpenses = expensesTransactions.reduce((acc, curr) => acc + Math.abs(curr.value), 0);
   const periodIncome = incomeTransactions.reduce((acc, curr) => acc + curr.value, 0);
 
-  const totalInvested = periodTransactions
+  const totalInvestedBruto = periodTransactions
       .filter(t => t.type.name === "Investimento")
-      .reduce((acc, curr) => acc + Math.abs(curr.value), 0);
+      .reduce((acc, curr) => acc + curr.value, 0);
+  const totalInvested = Math.abs(totalInvestedBruto);
 
   const chartData = [
     { name: "Entradas", value: periodIncome, fill: "#60a5fa" },
