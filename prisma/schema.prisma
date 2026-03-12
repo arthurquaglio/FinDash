@@ -21,6 +21,7 @@ model User {
   budgets      Budget[]
   creditCards  CreditCard[]
   goals        Goal[]        // <-- NOVO: Relação com as Caixinhas/Objetivos
+  bankAccounts  BankAccount[]
 }
 
 // Modelos Globais
@@ -67,6 +68,9 @@ model Transaction {
 
   creditCardId String?
   creditCard   CreditCard? @relation(fields: [creditCardId], references: [id])
+
+  bankAccountId String?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
 }
 
 // Metas de Gastos (Limites mensais)
@@ -95,4 +99,16 @@ model Goal {
 
   userId        String
   user          User      @relation(fields: [userId], references: [id])
+}
+
+model BankAccount {
+  id           String        @id @default(cuid())
+  name         String        // Ex: "Conta Bradesco", "Banco Inter"
+  initialValue Float         @default(0) // Saldo inicial se quiser
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[] // Uma conta tem várias transações
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 }

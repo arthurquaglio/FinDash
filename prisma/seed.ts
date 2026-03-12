@@ -10,15 +10,16 @@ async function main() {
 
     // @ts-ignore
     const flavia = await prisma.user.create({
-        data: { name: 'Flávia' }, // Troque pelo nome dela!
+        data: { name: 'Flávia' },
     })
 
-    // 2. Criar os Tipos de Transação (se já não existirem no seu seed)
+    // 2. Criar os Tipos de Transação (AGORA COM TRANSFERÊNCIA)
     await prisma.transactionType.createMany({
         data: [
             { name: 'Gasto' },
             { name: 'Receita' },
-            { name: 'Investimento' }
+            { name: 'Investimento' },
+            { name: 'Transferência' } // <-- NOVO TIPO AQUI
         ],
         skipDuplicates: true,
     })
@@ -42,7 +43,17 @@ async function main() {
         skipDuplicates: true,
     })
 
-    console.log('Seed executado com sucesso! Usuários e Categorias criados.')
+    // 4. NOVO: Criar as Contas Bancárias Iniciais
+    await prisma.bankAccount.createMany({
+        data: [
+            { name: 'Bradesco', userId: arthur.id },
+            { name: 'Banco Inter', userId: arthur.id },
+            { name: 'Conta Principal', userId: flavia.id }
+        ],
+        skipDuplicates: true,
+    })
+
+    console.log('Seed executado com sucesso! Usuários, Categorias e Contas Bancárias criados.')
 }
 
 main()

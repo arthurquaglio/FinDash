@@ -51,6 +51,11 @@ export default async function FinanceDashboard({
     where: { ...userFilter }
   });
 
+  // NOVO: Busca as Contas Bancárias do utilizador para a importação e cadastro
+  const userBankAccounts = await prisma.bankAccount.findMany({
+    where: { ...userFilter }
+  });
+
   const userGoals = await prisma.goal.findMany({
     where: { ...userFilter },
     orderBy: { name: 'asc' }
@@ -116,7 +121,6 @@ export default async function FinanceDashboard({
       })
   );
 
-  // NOVO: Calcula o Saldo Total (ignorando o filtro de mês) diretamente do banco
   const allTimeBalanceResult = await prisma.transaction.aggregate({
     where: {
       ...userFilter,
@@ -133,7 +137,6 @@ export default async function FinanceDashboard({
       .filter(t => t.type.name === "Investimento")
       .reduce((acc, curr) => acc + Math.abs(curr.value), 0);
 
-  // NOVO: Removido o 'Saldo' do gráfico
   const chartData = [
     { name: "Entradas", value: periodIncome, fill: "#60a5fa" },
     { name: "Gastos", value: periodExpenses, fill: "#f87171" },
@@ -158,7 +161,13 @@ export default async function FinanceDashboard({
                 <PeriodToggle />
               </div>
               <BudgetSidebar categories={allCategories} budgets={allBudgets}/>
-              <TransactionModal types={types} categories={allCategories} creditCards={userCreditCards} />
+              {/* ATUALIZADO: Passando bankAccounts para o TransactionModal */}
+              <TransactionModal
+                  types={types}
+                  categories={allCategories}
+                  creditCards={userCreditCards}
+                  bankAccounts={userBankAccounts}
+              />
             </div>
           </header>
 
@@ -208,7 +217,6 @@ export default async function FinanceDashboard({
                 <CardContent><div className="text-3xl font-bold text-red-400 font-mono">R$ {periodExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>
               </Card>
 
-              {/* NOVO: Saldo da Conta sempre exibe o total com 2 casas decimais */}
               <Card className="bg-zinc-900/50 border-zinc-800 flex-1 flex flex-col justify-center">
                 <CardHeader className="pb-1"><CardTitle className="text-xs text-zinc-500 uppercase">Saldo da Conta (Total)</CardTitle></CardHeader>
                 <CardContent><div className="text-3xl font-bold text-emerald-500">R$ {totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div></CardContent>

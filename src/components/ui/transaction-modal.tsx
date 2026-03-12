@@ -8,8 +8,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { addTransaction } from "@/app/actions";
 
-// NOVO: Adicionamos creditCards nas propriedades que o modal recebe
-export function TransactionModal({ types, categories, creditCards = [] }: any) {
+// NOVO: Adicionamos bankAccounts nas propriedades do modal
+export function TransactionModal({ types, categories, creditCards = [], bankAccounts = [] }: any) {
     const [open, setOpen] = useState(false);
 
     const [isInstallment, setIsInstallment] = useState(false);
@@ -72,11 +72,21 @@ export function TransactionModal({ types, categories, creditCards = [] }: any) {
                             {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                         </select>
 
-                        {/* NOVO: Seletor de Forma de Pagamento */}
+                        {/* NOVO: Seletor de Conta Bancária */}
+                        <select name="bankAccountId" required className="bg-zinc-950 border-zinc-800 rounded-md h-10 px-2 text-sm text-zinc-300">
+                            <option value="" disabled selected hidden>Conta Bancária...</option>
+                            {bankAccounts.map((account: any) => (
+                                <option key={account.id} value={account.id}>🏦 {account.name}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    <div className="grid grid-cols-1">
+                        {/* Seletor de Forma de Pagamento (Cartão ou Débito) */}
                         <select name="creditCardId" className="bg-zinc-950 border-zinc-800 rounded-md h-10 px-2 text-sm text-zinc-300">
-                            <option value="">Débito / Pix</option>
+                            <option value="">Débito / Pix / Dinheiro</option>
                             {creditCards.map((card: any) => (
-                                <option key={card.id} value={card.id}>💳 {card.name}</option>
+                                <option key={card.id} value={card.id}>💳 Cartão: {card.name}</option>
                             ))}
                         </select>
                     </div>

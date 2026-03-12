@@ -21,6 +21,8 @@ export async function addTransaction(formData: FormData) {
     const categoryId = formData.get("categoryId") as string;
 
     const creditCardId = formData.get("creditCardId") as string | null;
+    // NOVO: Pegando a conta bancária do formulário
+    const bankAccountId = formData.get("bankAccountId") as string | null;
 
     const installments = Number(formData.get("installments")) || 1;
     const fixedMonths = Number(formData.get("fixedMonths")) || 1;
@@ -56,7 +58,9 @@ export async function addTransaction(formData: FormData) {
             typeId,
             categoryId,
             userId: activeProfileId,
-            creditCardId: creditCardId === "" ? null : creditCardId
+            creditCardId: creditCardId === "" ? null : creditCardId,
+            // NOVO: Salvando a conta bancária no banco de dados
+            bankAccountId: bankAccountId === "" ? null : bankAccountId
         });
     }
 
@@ -85,6 +89,7 @@ export async function updateTransaction(id: string, formData: FormData) {
     const typeId = formData.get("typeId") as string;
     const categoryId = formData.get("categoryId") as string;
     const dateString = formData.get("date") as string;
+    const bankAccountId = formData.get("bankAccountId") as string | null;
 
     const type = await prisma.transactionType.findUnique({ where: { id: typeId } });
     const value = type?.name === "Receita" ? Math.abs(rawValue) : -Math.abs(rawValue);
@@ -97,6 +102,7 @@ export async function updateTransaction(id: string, formData: FormData) {
             date: new Date(`${dateString}T12:00:00Z`),
             typeId,
             categoryId,
+            ...(bankAccountId !== undefined && { bankAccountId: bankAccountId === "" ? null : bankAccountId })
         },
     });
 
@@ -131,6 +137,7 @@ export async function upsertBudget(categoryId: string, amount: number) {
     return { success: true };
 }
 
+// (O importTransactions original de CSV foi mantido, mas não alterado já que não estamos usando)
 export async function importTransactions(transactions: any[]) {
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
@@ -383,24 +390,26 @@ export async function importReviewedTransactions(transactions: any[]) {
     const types = await prisma.transactionType.findMany();
     const gastoType = types.find(t => t.name === "Gasto");
     const receitaType = types.find(t => t.name === "Receita");
-    // Busca o tipo de investimento (certifique-se de que ele existe no banco com esse nome)
     const investimentoType = types.find(t => t.name.toUpperCase() === "INVESTIMENTO");
+    // Novo tipo de transferência
+    const transferenciaType = types.find(t => t.name.toUpperCase() === "TRANSFERÊNCIA" || t.name.toUpperCase() === "TRANSFERENCIA");
 
     if (!gastoType || !receitaType) {
-        return { error: "Tipos de transação não encontrados. Rode o SEED." };
+        return { error: "Tipos de transação não encontrados. Corra o SEED." };
     }
 
     const dataToSave = transactions.map(t => {
         const isNegative = t.value < 0;
 
-        // Define o tipo padrão (Gasto ou Receita)
         let finalTypeId = isNegative ? gastoType.id : receitaType.id;
 
-        // Verifica se o frontend mandou uma sobrescrita (ex: Regra do Arthur)
+        // Verifica as sobrescritas do OFX
         if (t.overrideType === "Investimento" && investimentoType) {
             finalTypeId = investimentoType.id;
         } else if (t.overrideType === "Receita") {
             finalTypeId = receitaType.id;
+        } else if (t.overrideType === "Transferência" && transferenciaType) {
+            finalTypeId = transferenciaType.id;
         }
 
         return {
@@ -411,6 +420,7 @@ export async function importReviewedTransactions(transactions: any[]) {
             typeId: finalTypeId,
             userId: activeProfileId,
             creditCardId: t.creditCardId || null,
+            bankAccountId: t.bankAccountId || null, // Guarda a conta bancária
         };
     });
 
@@ -419,11 +429,12 @@ export async function importReviewedTransactions(transactions: any[]) {
             data: dataToSave,
             skipDuplicates: true,
         });
+        // Atualiza a interface
         revalidatePath("/");
         revalidatePath("/gastos");
         return { success: true };
     } catch (error) {
         console.error("Erro no Prisma:", error);
-        return { error: "Erro ao salvar no banco. Verifique os dados." };
+        return { error: "Erro ao salvar na base de dados. Verifique os dados." };
     }
 }
