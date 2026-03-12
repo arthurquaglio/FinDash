@@ -1,69 +1,89 @@
 // src/negocios/dashboardNegocios.ts
-import { buscarDadosDoDashboardDb } from "@/dados/dashboardDados";
+import { buscarDadosCompletosDashboardDb } from "@/dados/dashboardDados";
 
 //#region DASHBOARD BLL (Business Logic Layer)
 /**
- * Orquestra e processa os dados financeiros do usuário para um período específico.
- * Esta função não acessa o banco de dados diretamente; ela delega a leitura à camada de Dados
- * e aplica as regras de negócio (matemática de saldos, separação por contas, consolidação).
- * * @param userId - O identificador único do perfil logado (ex: ID do Arthur ou da Flávia).
- * @param userId
- * @param dataInicio - A data inicial do filtro de período selecionado.
- * @param dataFim - A data final do filtro de período selecionado.
- * @returns Retorna um objeto consolidado (DTO) com os resumos globais, saldos por conta, e listas auxiliares. Retorna null se o usuário não for fornecido.
+ * Orquestra e processa os dados financeiros do usuário para o Dashboard.
+ * Esta função NÃO acessa a base de dados diretamente; ela delega a leitura à camada de Dados
+ * e aplica as regras de negócio (matemática de saldos, separação por contas, limites de orçamento).
+ * @param userId - O identificador único do perfil logado (ex: ID do Arthur ou da Flávia).
+ * @param isAllTime - Variável de controle do filtro de data da tela.
+ * @returns Retorna um objeto consolidado (DTO) pronto para a View renderizar.
  */
-export async function obterResumoFinanceiroDoMes(userId: string, dataInicio: Date, dataFim: Date) {
-    //#region 1. Validação e Busca de Dados (DAL)
-    if (!userId) return null;
-
-    // A Camada de Negócios pede os dados brutos à Camada de Dados
-    const { contasBancarias, transacoesMes, metas, orcamentos } = await buscarDadosDoDashboardDb(userId, dataInicio, dataFim);
+export async function obterResumoFinanceiro(userId: string | undefined, isAllTime: boolean) {
+    //#region 1. Delegação para a Camada de Dados (DAL)
+    const dadosBrutos = await buscarDadosCompletosDashboardDb(userId, isAllTime);
     //#endregion
 
     //#region 2. Cálculos Globais (Dashboard Resumo)
-    const receitas = transacoesMes
-        .filter(t => t.type.name === "Receita")
-        .reduce((acc, curr) => acc + curr.value, 0);
+    const gastosMes = dadosBrutos.transacoesPeriodo.filter(t => t.type.name === "Gasto");
+    const receitasMes = dadosBrutos.transacoesPeriodo.filter(t => t.type.name === "Receita");
 
-    const gastos = transacoesMes
-        .filter(t => t.type.name === "Gasto")
-        .reduce((acc, curr) => acc + Math.abs(curr.value), 0);
+    const totalGastos = gastosMes.reduce((acc, curr) => acc + Math.abs(curr.value), 0);
+    const totalReceitas = receitasMes.reduce((acc, curr) => acc + curr.value, 0);
 
     // Matemática corrigida de investimentos (Aplicações - Resgates)
-    const totalInvestedBruto = transacoesMes
+    const totalInvestedBruto = dadosBrutos.transacoesPeriodo
         .filter(t => t.type.name === "Investimento" || t.type.name === "Renda Fixa")
         .reduce((acc, curr) => acc + curr.value, 0);
     const investido = Math.abs(totalInvestedBruto);
+
+    const maiorGasto = gastosMes.length > 0
+        ? gastosMes.reduce((prev, curr) => (Math.abs(prev.value) > Math.abs(curr.value)) ? prev : curr)
+        : null;
     //#endregion
 
     //#region 3. Cálculos Individuais por Conta (Nova Feature)
     // Cria um array dinâmico com o saldo consolidado de cada conta do usuário
-    const saldosPorConta = contasBancarias.map(conta => {
-        // Separa as transações que pertencem exclusivamente a esta conta
-        const transacoesDestaConta = transacoesMes.filter(t => t.bankAccountId === conta.id);
+    const saldosPorConta = dadosBrutos.contasBancarias.map(conta => {
+        // Separa as transações que pertencem exclusivamente a esta conta (usando todo o histórico)
+        const transacoesDestaConta = dadosBrutos.todasTransacoesUser.filter(t => t.bankAccountId === conta.id);
 
-        // Soma as movimentações (Entradas, Saídas, Transferências) partindo do saldo inicial da conta
+        // Soma as movimentações (Entradas, Saídas, Transferências) partindo do saldo inicial
         const saldoDaConta = transacoesDestaConta.reduce((acc, curr) => acc + curr.value, conta.initialValue || 0);
 
         return {
             id: conta.id,
-            nome: conta.name,
-            saldo: saldoDaConta
+            name: conta.name,
+            currentBalance: saldoDaConta
         };
     });
-
-    // O Saldo Total global é a soma de todas as movimentações do período
-    // (Inclui dinheiro vivo/carteira que pode não estar atrelado a uma conta bancária específica)
-    const saldoTotal = transacoesMes.reduce((acc, curr) => acc + curr.value, 0);
     //#endregion
 
-    //#region 4. Retorno Consolidado para a View
+    //#region 4. Validação de Orçamentos (Budgets)
+    // Recalcula o status da barra de progresso de cada orçamento
+    const orcamentosStatus = dadosBrutos.orcamentos.map(b => {
+        const spent = dadosBrutos.transacoesPeriodo
+            .filter(t => t.categoryId === b.categoryId && t.value < 0)
+            .reduce((acc, curr) => acc + curr.value, 0);
+
+        const currentSpent = Math.abs(spent);
+        return {
+            categoryId: b.categoryId,
+            category: b.category?.name || "Sem categoria",
+            limit: b.amount,
+            current: currentSpent,
+            percent: (currentSpent / b.amount) * 100
+        };
+    });
+    //#endregion
+
+    //#region 5. Retorno Consolidado para a View
     return {
-        resumo: { receitas, gastos, investido, saldoTotal },
+        totalReceitas,
+        totalGastos,
+        investido,
+        categorias: dadosBrutos.categorias,
+        orcamentosStatus,
+        tipos: dadosBrutos.tipos,
+        cartoesCredito: dadosBrutos.cartoesCredito,
+        contasBancarias: dadosBrutos.contasBancarias,
+        saldoTotal: dadosBrutos.saldoTotalGlobal,
         saldosPorConta,
-        transacoesMes,
-        metas,
-        orcamentos
+        maiorGasto,
+        metas: dadosBrutos.metas,
+        contasFuturas: dadosBrutos.contasFuturas,
+        transacoesPeriodo: dadosBrutos.transacoesPeriodo
     };
     //#endregion
 }
