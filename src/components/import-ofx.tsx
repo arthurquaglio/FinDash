@@ -10,6 +10,7 @@ import { identifyCategory } from "@/lib/categorizer";
 interface ImportOFXProps {
     categories: any[];
     creditCards: any[];
+    bankAccounts: any[];
 }
 
 type ParsedTransaction = {
@@ -23,7 +24,7 @@ type ParsedTransaction = {
     overrideType?: "Investimento" | "Receita" | null;
 };
 
-export function ImportOFX({ categories, creditCards }: ImportOFXProps) {
+export function ImportOFX({ categories, creditCards, bankAccounts }: ImportOFXProps) {
     const [isImporting, setIsImporting] = useState(false);
     const [isReviewing, setIsReviewing] = useState(false);
     const [parsedData, setParsedData] = useState<ParsedTransaction[]>([]);
