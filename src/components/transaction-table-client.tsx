@@ -8,7 +8,8 @@ import { deleteManyTransactions } from "@/app/actions";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function TransactionTableClient({ transactions, types, categories }: any) {
+// NOVO: Adicionado bankAccounts e creditCards nas props
+export function TransactionTableClient({ transactions, types, categories, bankAccounts = [], creditCards = [] }: any) {
     // Guarda os IDs das transações selecionadas
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -112,10 +113,13 @@ export function TransactionTableClient({ transactions, types, categories }: any)
                                         {t.value.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
                                     </TableCell>
                                     <TableCell className="text-right pr-4">
+                                        {/* ATUALIZADO: Repassando bankAccounts e creditCards */}
                                         <TransactionActions
                                             transaction={t}
                                             types={types}
                                             categories={categories}
+                                            bankAccounts={bankAccounts}
+                                            creditCards={creditCards}
                                         />
                                     </TableCell>
                                 </TableRow>

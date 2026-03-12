@@ -4,7 +4,7 @@ import { ReceiptText } from "lucide-react";
 import { ImportOFX } from "@/components/import-ofx";
 import { Filters } from "@/components/ui/filters";
 import { cookies } from "next/headers";
-import { TransactionTableClient } from "@/components/transaction-table-client"; // <-- A SUA NOVA IMPORTAÇÃO AQUI!
+import { TransactionTableClient } from "@/components/transaction-table-client";
 
 export default async function GastosPage({
                                              searchParams,
@@ -18,13 +18,17 @@ export default async function GastosPage({
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
-
-    const userCreditCards = await prisma.creditCard.findMany({
-        where: activeProfileId ? { userId: activeProfileId } : {}
-    });
-
     // CRIAR O FILTRO DE USUÁRIO
     const userFilter = activeProfileId ? { userId: activeProfileId } : {};
+
+    const userCreditCards = await prisma.creditCard.findMany({
+        where: userFilter
+    });
+
+    // NOVO: Busca as contas bancárias do usuário
+    const userBankAccounts = await prisma.bankAccount.findMany({
+        where: userFilter
+    });
 
     // Garantimos que os valores sejam strings ou undefined a partir do 'params' resolvido
     const query = params.q || "";
@@ -72,7 +76,12 @@ export default async function GastosPage({
                             </div>
                         </div>
                         <div className="flex items-center gap-3">
-                            <ImportOFX categories={categories} creditCards={userCreditCards} />
+                            {/* ATUALIZADO: Passando bankAccounts para o importador */}
+                            <ImportOFX
+                                categories={categories}
+                                creditCards={userCreditCards}
+                                bankAccounts={userBankAccounts}
+                            />
                         </div>
                     </div>
 
@@ -81,11 +90,13 @@ export default async function GastosPage({
                     </div>
                 </header>
 
-                {/* Olha como o código ficou limpo! O seu novo componente faz t0do o trabalho pesado agora: */}
+                {/* ATUALIZADO: Passando as contas e os cartões para a tabela */}
                 <TransactionTableClient
                     transactions={transactions}
                     types={types}
                     categories={categories}
+                    bankAccounts={userBankAccounts}
+                    creditCards={userCreditCards}
                 />
 
             </div>
