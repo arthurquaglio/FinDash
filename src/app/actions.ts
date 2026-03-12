@@ -5,7 +5,13 @@ import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { prisma } from "@/dados/prisma";
 import { identifyCategory } from "@/utilitarios/categorizer";
-import { processarNovaTransacao } from "@/negocios/transacaoNegocios";
+import {
+    processarNovaTransacao,
+    processarAtualizacaoTransacao,
+    processarAtualizacaoCategoria,
+    processarExclusaoTransacao,
+    processarExclusaoEmMassa
+} from "@/negocios/transacaoNegocios";
 
 //#region PERFIL & AUTENTICAÇÃO
 /**
@@ -60,36 +66,22 @@ export async function addTransaction(formData: FormData) {
  * @returns Objeto indicando sucesso ou erro da operação.
  */
 export async function updateTransaction(id: string, formData: FormData) {
-    try {
-        const name = formData.get("name") as string;
-        const rawValue = Number(formData.get("value"));
-        const typeId = formData.get("typeId") as string;
-        const categoryId = formData.get("categoryId") as string;
-        const dateString = formData.get("date") as string;
-        const bankAccountId = formData.get("bankAccountId") as string | null;
+    const dadosFormulario = {
+        name: formData.get("name") as string,
+        value: formData.get("value"),
+        typeId: formData.get("typeId") as string,
+        categoryId: formData.get("categoryId") as string,
+        date: formData.get("date") as string,
+        bankAccountId: formData.get("bankAccountId") as string | null
+    };
 
-        const type = await prisma.transactionType.findUnique({ where: { id: typeId } });
-        const value = type?.name === "Receita" ? Math.abs(rawValue) : -Math.abs(rawValue);
+    const resultado = await processarAtualizacaoTransacao(id, dadosFormulario);
 
-        await prisma.transaction.update({
-            where: { id },
-            data: {
-                name,
-                value,
-                date: new Date(`${dateString}T12:00:00Z`),
-                typeId,
-                categoryId,
-                ...(bankAccountId !== undefined && { bankAccountId: bankAccountId === "" ? null : bankAccountId })
-            },
-        });
+    if (resultado.erro) return { error: resultado.erro };
 
-        revalidatePath("/");
-        revalidatePath("/gastos");
-        return { success: true };
-    } catch (error) {
-        console.error("[ACTIONS] Erro ao atualizar transação:", error);
-        return { error: "Erro ao atualizar a transação." };
-    }
+    revalidatePath("/");
+    revalidatePath("/gastos");
+    return { success: true };
 }
 
 /**
@@ -100,17 +92,12 @@ export async function updateTransaction(id: string, formData: FormData) {
  * @returns Objeto indicando sucesso ou erro.
  */
 export async function updateTransactionCategory(transactionId: string, categoryId: string) {
-    try {
-        await prisma.transaction.update({
-            where: { id: transactionId },
-            data: { categoryId }
-        });
-        revalidatePath("/gastos");
-        revalidatePath("/");
-        return { success: true };
-    } catch (error) {
-        return { error: "Erro ao atualizar categoria." };
-    }
+    const resultado = await processarAtualizacaoCategoria(transactionId, categoryId);
+    if (resultado.erro) return { error: resultado.erro };
+
+    revalidatePath("/gastos");
+    revalidatePath("/");
+    return { success: true };
 }
 
 /**
@@ -119,18 +106,12 @@ export async function updateTransactionCategory(transactionId: string, categoryI
  * @returns Objeto indicando sucesso ou erro.
  */
 export async function deleteTransaction(id: string) {
-    try {
-        await prisma.transaction.delete({
-            where: { id },
-        });
+    const resultado = await processarExclusaoTransacao(id);
+    if (resultado.erro) return { error: resultado.erro };
 
-        revalidatePath("/");
-        revalidatePath("/gastos");
-        return { success: true };
-    } catch (error) {
-        console.error("[ACTIONS] Erro ao apagar transação:", error);
-        return { error: "Não foi possível apagar a transação." };
-    }
+    revalidatePath("/");
+    revalidatePath("/gastos");
+    return { success: true };
 }
 
 /**
@@ -143,25 +124,14 @@ export async function deleteManyTransactions(ids: string[]) {
     const cookieStore = await cookies();
     const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
-    if (!activeProfileId) {
-        return { error: "Selecione um perfil (Arthur ou Flávia) no menu antes de apagar." };
-    }
+    if (!activeProfileId) return { error: "Selecione um perfil no menu antes de apagar." };
 
-    try {
-        await prisma.transaction.deleteMany({
-            where: {
-                id: { in: ids },
-                userId: activeProfileId
-            }
-        });
+    const resultado = await processarExclusaoEmMassa(ids, activeProfileId);
+    if (resultado.erro) return { error: resultado.erro };
 
-        revalidatePath("/");
-        revalidatePath("/gastos");
-        return { success: true };
-    } catch (error) {
-        console.error("[ACTIONS] Erro ao apagar transações em massa:", error);
-        return { error: "Erro ao apagar as transações selecionadas." };
-    }
+    revalidatePath("/");
+    revalidatePath("/gastos");
+    return { success: true };
 }
 //#endregion
 
