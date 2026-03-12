@@ -36,22 +36,30 @@ export async function setActiveProfile(userId: string) {
  * @returns Retorna a mensagem de erro para a tela, ou atualiza a página em caso de sucesso.
  */
 export async function addTransaction(formData: FormData) {
+    // 1. Busca o ID do usuário de forma segura através do Cookie (Autenticação)
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) {
+        return { error: "Selecione um perfil (Arthur ou Flávia) no menu antes de adicionar." };
+    }
+
+    // 2. Extrai os dados do formulário
     const dadosFormulario = {
         name: formData.get("name")?.toString() || "",
         value: parseFloat(formData.get("value")?.toString() || "0"),
         date: formData.get("date")?.toString() || new Date().toISOString(),
         categoryId: formData.get("categoryId")?.toString() || "",
         typeId: formData.get("typeId")?.toString() || "",
-        userId: formData.get("userId")?.toString() || "",
+        userId: activeProfileId, // <--- A MÁGICA DA CORREÇÃO ESTÁ AQUI!
         bankAccountId: formData.get("bankAccountId")?.toString() || "",
         creditCardId: formData.get("creditCardId")?.toString() || "",
     };
 
+    // 3. Envia para a Camada de Negócios
     const resultado = await processarNovaTransacao(dadosFormulario);
 
-    if (resultado.erro) {
-        return { error: resultado.erro };
-    }
+    if (resultado.erro) return { error: resultado.erro };
 
     revalidatePath("/");
     revalidatePath("/gastos");
