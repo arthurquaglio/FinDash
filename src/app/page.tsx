@@ -1,6 +1,6 @@
 // src/app/page.tsx
 import React from "react";
-import { LayoutDashboard, Wallet, TrendingUp, Trash2, Target, PlusCircle } from "lucide-react";
+import { LayoutDashboard, Wallet, TrendingUp, Trash2, Target } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/view/ui/card";
 import { Button } from "@/view/ui/button";
 import { Input } from "@/view/ui/input";
@@ -11,27 +11,33 @@ import { GoalModal } from "@/view/ui/goal-modal";
 import { cookies } from "next/headers";
 import { PeriodToggle } from "@/view/period-toggle";
 import { deleteBudget, deleteGoal, addMoneyToGoal } from "@/app/actions";
+
+//#region IMPORTS DE ARQUITETURA N-TIER
 import { obterResumoFinanceiro } from "@/negocios/dashboardNegocios";
 import { BankIcon } from "@/view/bank-icon";
+import { BankAccountModal } from "@/view/ui/bank-account-modal";
+//#endregion
 
 /**
  * Interface visual principal do FinDash (Dashboard).
- * Atua estritamente como a Camada de View no padrão N-Tier, solicitando os dados à Camada de Negócios.
- * * @param searchParams - Parâmetros da URL para controle de período.
- * @returns Retorna a interface completa em JSX renderizada no servidor.
+ * Atua estritamente como a Camada de View no padrão N-Tier.
  */
-export default async function FinanceDashboard({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
-  //#region 1. PREPARAÇÃO DE DADOS (VIA CAMADA DE NEGÓCIOS)
+export default async function FinanceDashboard({
+                                                 searchParams,
+                                               }: {
+  searchParams: Promise<{ periodo?: string }>;
+}) {
+  //#region 1. PREPARAÇÃO E BUSCA DE DADOS (VIA BLL)
   const params = await searchParams;
   const isAllTime = params.periodo === "tudo";
 
   const cookieStore = await cookies();
   const activeProfileId = cookieStore.get("activeProfileId")?.value;
 
-  // A View passa a responsabilidade para a BLL (que por sua vez chama a DAL)
   const dados = await obterResumoFinanceiro(activeProfileId, isAllTime);
 
-  // Preparação de formatação visual
+  if (!dados) return <div className="p-8 text-zinc-500">Por favor, selecione um perfil.</div>;
+
   const periodText = isAllTime ? "todo o período" : "do mês";
   const periodLabel = isAllTime ? "(Total)" : "(Mês)";
 
@@ -46,6 +52,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
       <div className="flex min-h-screen bg-zinc-950 text-zinc-50 font-sans">
         <main className="flex-1 p-8 overflow-y-auto">
 
+          {/* #region 2. CABEÇALHO E AÇÕES (HEADER) */}
           <header className="flex justify-between items-start mb-8">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Visão Geral</h1>
@@ -68,8 +75,9 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
           <div className="mb-6 md:hidden">
             <PeriodToggle />
           </div>
+          {/* #endregion */}
 
-
+          {/* #region 3. SEÇÃO DE CONTAS BANCÁRIAS (CARDS INDIVIDUAIS) */}
           <div className="mb-8">
             <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-4 flex items-center justify-between">
               Minhas Contas
@@ -92,29 +100,27 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                     </CardContent>
                   </Card>
               ))}
-
-              <Card className="min-w-[240px] bg-zinc-900/30 border-zinc-800 border-dashed shrink-0 snap-start hover:bg-zinc-900/50 hover:border-zinc-700 transition-all cursor-pointer flex flex-col items-center justify-center p-5 group">
-                <PlusCircle className="w-8 h-8 text-zinc-600 mb-2 group-hover:text-emerald-500 transition-colors" />
-                <p className="text-sm font-medium text-zinc-400 group-hover:text-zinc-300">Nova Conta Bancária</p>
-              </Card>
+              <BankAccountModal />
             </div>
           </div>
+          {/* #endregion */}
 
+          {/* #region 4. HIGHLIGHTS (MAIOR GASTO E LIMITES) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-4">
-              <div className="p-2.5 bg-red-500/10 rounded-lg text-red-500"><TrendingUp className="w-5 h-5"/></div>
+              <div className="p-2.5 bg-red-500/10 rounded-lg text-red-500"><TrendingUp className="w-5 h-5" /></div>
               <div>
                 <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Maior gasto {periodText}</p>
                 <p className="text-sm text-zinc-200">
                   {dados.maiorGasto
-                      ? `${dados.maiorGasto.name}: ${Math.abs(dados.maiorGasto.value).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}`
+                      ? `${dados.maiorGasto.name}: ${Math.abs(dados.maiorGasto.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
                       : "Nenhum gasto registrado."}
                 </p>
               </div>
             </div>
 
             <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-4">
-              <div className="p-2.5 bg-blue-500/10 rounded-lg text-blue-500"><LayoutDashboard className="w-5 h-5"/></div>
+              <div className="p-2.5 bg-blue-500/10 rounded-lg text-blue-500"><LayoutDashboard className="w-5 h-5" /></div>
               <div>
                 <p className="text-xs text-zinc-500 font-bold uppercase tracking-wider">Atenção aos Limites</p>
                 <p className="text-sm text-zinc-200">
@@ -123,11 +129,13 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
               </div>
             </div>
           </div>
+          {/* #endregion */}
 
+          {/* #region 5. GRÁFICOS E RESUMO FINANCEIRO */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="lg:col-span-2">
               <Card className="bg-zinc-900/50 border-zinc-800 h-full flex flex-col justify-center p-4">
-                <DashboardCharts data={chartData}/>
+                <DashboardCharts data={chartData} />
               </Card>
             </div>
 
@@ -148,7 +156,9 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
               </Card>
             </div>
           </div>
+          {/* #endregion */}
 
+          {/* #region 6. CAIXINHAS (METAS DE ECONOMIA) */}
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
@@ -170,7 +180,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                               <div>
                                 <h3 className="font-bold text-zinc-100">{goal.name}</h3>
                                 <p className="text-xs text-zinc-500 mt-1">
-                                  {goal.currentAmount.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} de {goal.targetAmount.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                                  {goal.currentAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} de {goal.targetAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </p>
                               </div>
                               <form action={async () => {
@@ -186,14 +196,14 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                             <div className="h-3 w-full bg-zinc-800 rounded-full overflow-hidden mb-4">
                               <div
                                   className="h-full bg-emerald-500 transition-all duration-500"
-                                  style={{width: `${Math.min(percent, 100)}%`}}
+                                  style={{ width: `${Math.min(percent, 100)}%` }}
                               />
                             </div>
 
                             <form action={async (formData) => {
                               "use server";
                               const val = Number(formData.get("amount"));
-                              if(val > 0) await addMoneyToGoal(goal.id, val);
+                              if (val > 0) await addMoneyToGoal(goal.id, val);
                             }} className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
                               <Input name="amount" type="number" step="0.01" min="0.01" placeholder="Guardar mais..." className="h-8 text-xs bg-zinc-950 border-zinc-800" />
                               <Button type="submit" size="sm" className="h-8 bg-emerald-600 hover:bg-emerald-700 text-xs text-white">Guardar</Button>
@@ -213,7 +223,9 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                 </Card>
             )}
           </div>
+          {/* #endregion */}
 
+          {/* #region 7. LIMITES DE GASTOS (ORÇAMENTOS POR CATEGORIA) */}
           {dados.orcamentosStatus.length > 0 && (
               <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
                 <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Limites de Gastos</CardTitle></CardHeader>
@@ -224,9 +236,9 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                           <div className="flex justify-between items-center text-xs font-medium">
                             <span className="text-zinc-400">{b.category}</span>
                             <div className="flex items-center gap-3">
-                                                <span className={b.percent > 90 ? "text-red-400 font-bold" : "text-zinc-300"}>
-                                                    {b.current.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})} / {b.limit.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
-                                                </span>
+                        <span className={b.percent > 90 ? "text-red-400 font-bold" : "text-zinc-300"}>
+                          {b.current.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} / {b.limit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
                               <form action={async () => {
                                 "use server";
                                 await deleteBudget(b.categoryId);
@@ -240,7 +252,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                           <div className="h-2 w-full bg-zinc-800 rounded-full overflow-hidden">
                             <div
                                 className={`h-full transition-all duration-500 ${b.percent > 90 ? 'bg-red-500' : 'bg-rose-500'}`}
-                                style={{width: `${Math.min(b.percent, 100)}%`}}
+                                style={{ width: `${Math.min(b.percent, 100)}%` }}
                             />
                           </div>
                         </div>
@@ -249,9 +261,11 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                 </CardContent>
               </Card>
           )}
+          {/* #endregion */}
 
+          {/* #region 8. PRÓXIMOS VENCIMENTOS (15 DIAS) */}
           <Card className="bg-zinc-900/50 border-zinc-800 mb-8 overflow-hidden relative">
-            <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-orange-500/50 to-orange-400/20" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-500/50 to-orange-400/20" />
             <CardHeader>
               <CardTitle className="text-sm font-semibold text-orange-400 uppercase tracking-widest flex items-center gap-2">
                 Próximos Vencimentos (15 dias)
@@ -262,7 +276,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                   <div className="space-y-3">
                     {dados.contasFuturas.map((bill) => {
                       const billDate = new Date(bill.date);
-                      const diffTime = billDate.getTime() - new Date().setHours(0,0,0,0);
+                      const diffTime = billDate.getTime() - new Date().setHours(0, 0, 0, 0);
                       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
                       let dayText;
@@ -295,7 +309,9 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
               )}
             </CardContent>
           </Card>
+          {/* #endregion */}
 
+          {/* #region 9. HISTÓRICO RECENTE */}
           <Card className="bg-zinc-900/50 border-zinc-800">
             <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Histórico Recente</CardTitle></CardHeader>
             <CardContent>
@@ -318,6 +334,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
               </div>
             </CardContent>
           </Card>
+          {/* #endregion */}
 
         </main>
       </div>

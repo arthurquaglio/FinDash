@@ -12,6 +12,7 @@ import {
     processarExclusaoTransacao,
     processarExclusaoEmMassa
 } from "@/negocios/transacaoNegocios";
+import { processarNovaContaBancaria } from "@/negocios/contaBancariaNegocios";
 
 //#region PERFIL & AUTENTICAÇÃO
 /**
@@ -482,5 +483,32 @@ export async function deleteGoal(id: string) {
         console.error("[ACTIONS] Erro ao apagar Caixinha:", error);
         return { error: "Erro ao apagar a caixinha." };
     }
+}
+//#endregion
+
+//#region CONTAS BANCÁRIAS
+/**
+ * Endpoint chamado pelo modal para registrar uma nova conta bancária.
+ * @param formData - Dados embutidos do formulário HTML.
+ * @returns Retorna erro ou recarrega a página em caso de sucesso.
+ */
+export async function addBankAccount(formData: FormData) {
+    const cookieStore = await cookies();
+    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+
+    if (!activeProfileId) return { error: "Selecione um perfil para criar a conta." };
+
+    const dadosFormulario = {
+        name: formData.get("name")?.toString() || "",
+        initialValue: parseFloat(formData.get("initialValue")?.toString() || "0"),
+        userId: activeProfileId
+    };
+
+    const resultado = await processarNovaContaBancaria(dadosFormulario);
+
+    if (resultado.erro) return { error: resultado.erro };
+
+    revalidatePath("/");
+    return { success: true };
 }
 //#endregion
