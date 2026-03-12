@@ -9,7 +9,7 @@ import {
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/view/ui/dropdown-menu";
 
 export function ProfileSelector({ users, activeId }: { users: any[], activeId: string | undefined }) {
     const router = useRouter();

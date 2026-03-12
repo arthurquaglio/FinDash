@@ -1,10 +1,10 @@
 // src/app/gastos/page.tsx
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/dados/prisma";
 import { ReceiptText } from "lucide-react";
-import { ImportOFX } from "@/components/import-ofx";
-import { Filters } from "@/components/ui/filters";
+import { ImportOFX } from "@/view/import-ofx";
+import { Filters } from "@/view/ui/filters";
 import { cookies } from "next/headers";
-import { TransactionTableClient } from "@/components/transaction-table-client";
+import { TransactionTableClient } from "@/view/transaction-table-client";
 
 export default async function GastosPage({
                                              searchParams,

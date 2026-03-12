@@ -1,12 +1,12 @@
-// src/components/transaction-table-client.tsx
+// src/view/transaction-table-client.tsx
 "use client";
 
 import { useState } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { TransactionActions } from "@/components/transaction-actions";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/view/ui/table";
+import { TransactionActions } from "@/view/transaction-actions";
 import { deleteManyTransactions } from "@/app/actions";
 import { Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/view/ui/button";
 
 // NOVO: Adicionado bankAccounts e creditCards nas props
 export function TransactionTableClient({ transactions, types, categories, bankAccounts = [], creditCards = [] }: any) {

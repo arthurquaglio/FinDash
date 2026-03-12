@@ -1,11 +1,11 @@
-// src/components/ui/transaction-modal.tsx
+// src/view/ui/transaction-modal.tsx
 "use client";
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/view/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/view/ui/dialog";
+import { Input } from "@/view/ui/input";
 import { addTransaction } from "@/app/actions";
 
 // NOVO: Adicionamos bankAccounts nas propriedades do modal

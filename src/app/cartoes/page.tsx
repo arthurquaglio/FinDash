@@ -1,10 +1,10 @@
 // src/app/cartoes/page.tsx
 import React from "react";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/dados/prisma";
 import { CreditCard as CardIcon, Trash2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/view/ui/card";
 import { cookies } from "next/headers";
-import { CreditCardModal } from "@/components/ui/credit-card-modal";
+import { CreditCardModal } from "@/view/ui/credit-card-modal";
 import { deleteCreditCard } from "@/app/actions";
 
 export default async function CartoesPage() {

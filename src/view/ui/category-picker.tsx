@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { Check, ChevronDown, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/view/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "@/view/ui/dropdown-menu";
 import { updateTransactionCategory } from "@/app/actions";
-import { cn } from "@/lib/utils";
+import { cn } from "@/utilitarios/utils";
 
 // Mapa de cores para combinar com seu Seed
 const categoryColors: Record<string, string> = {

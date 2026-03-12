@@ -1,11 +1,11 @@
-// src/components/ui/credit-card-modal.tsx
+// src/view/ui/credit-card-modal.tsx
 "use client";
 
 import { useState } from "react";
 import { Plus, CreditCard } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/view/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/view/ui/dialog";
+import { Input } from "@/view/ui/input";
 import { addCreditCard } from "@/app/actions";
 
 export function CreditCardModal() {

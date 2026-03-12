@@ -1,11 +1,11 @@
-// src/components/ui/goal-modal.tsx
+// src/view/ui/goal-modal.tsx
 "use client";
 
 import { useState } from "react";
 import { Plus, Target } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/view/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/view/ui/dialog";
+import { Input } from "@/view/ui/input";
 import { addGoal } from "@/app/actions";
 
 export function GoalModal() {

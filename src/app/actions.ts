@@ -3,71 +3,37 @@
 
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
-import { identifyCategory } from "@/lib/categorizer";
+import { prisma } from "@/dados/prisma";
+import { identifyCategory } from "@/utilitarios/categorizer";
+import { processarNovaTransacao } from "@/negocios/transacaoNegocios";
 
+/**
+ * Endpoint chamado pelo formulário (View) para registrar uma transação.
+ * * @param formData - Os dados embutidos do formulário HTML.
+ * @returns Retorna a mensagem de erro para a tela, ou atualiza a página em caso de sucesso.
+ */
 export async function addTransaction(formData: FormData) {
-    const cookieStore = await cookies();
-    const activeProfileId = cookieStore.get("activeProfileId")?.value;
+    // 1. Extrair os dados da View (Formulário)
+    const dadosFormulario = {
+        name: formData.get("name")?.toString() || "",
+        value: parseFloat(formData.get("value")?.toString() || "0"),
+        date: formData.get("date")?.toString() || new Date().toISOString(),
+        categoryId: formData.get("categoryId")?.toString() || "",
+        typeId: formData.get("typeId")?.toString() || "",
+        userId: formData.get("userId")?.toString() || "",
+        bankAccountId: formData.get("bankAccountId")?.toString() || "",
+        creditCardId: formData.get("creditCardId")?.toString() || "",
+    };
 
-    if (!activeProfileId) {
-        return { error: "Selecione um perfil (Arthur ou Flávia) no menu antes de adicionar." };
+    // 2. Passar a responsabilidade para a Camada de Negócios
+    const resultado = await processarNovaTransacao(dadosFormulario);
+
+    // 3. Devolver a resposta para a View
+    if (resultado.erro) {
+        return { error: resultado.erro }; // O modal na tela vai mostrar este texto
     }
 
-    const name = formData.get("name") as string;
-    const rawValue = Number(formData.get("value"));
-    const dateString = formData.get("date") as string;
-    const typeId = formData.get("typeId") as string;
-    const categoryId = formData.get("categoryId") as string;
-
-    const creditCardId = formData.get("creditCardId") as string | null;
-    // NOVO: Pegando a conta bancária do formulário
-    const bankAccountId = formData.get("bankAccountId") as string | null;
-
-    const installments = Number(formData.get("installments")) || 1;
-    const fixedMonths = Number(formData.get("fixedMonths")) || 1;
-
-    const type = await prisma.transactionType.findUnique({
-        where: { id: typeId }
-    });
-
-    const totalValue = type?.name === "Receita" ? Math.abs(rawValue) : -Math.abs(rawValue);
-
-    const iterations = Math.max(installments, fixedMonths);
-
-    const iterationValue = installments > 1
-        ? Math.round((totalValue / installments) * 100) / 100
-        : totalValue;
-
-    const transactionsToCreate = [];
-    const baseDate = new Date(`${dateString}T12:00:00Z`);
-
-    for (let i = 1; i <= iterations; i++) {
-        const iterationDate = new Date(baseDate);
-        iterationDate.setMonth(baseDate.getMonth() + (i - 1));
-
-        let finalName = name;
-        if (installments > 1) {
-            finalName = `${name} (${i}/${iterations})`;
-        }
-
-        transactionsToCreate.push({
-            name: finalName,
-            value: iterationValue,
-            date: iterationDate,
-            typeId,
-            categoryId,
-            userId: activeProfileId,
-            creditCardId: creditCardId === "" ? null : creditCardId,
-            // NOVO: Salvando a conta bancária no banco de dados
-            bankAccountId: bankAccountId === "" ? null : bankAccountId
-        });
-    }
-
-    await prisma.transaction.createMany({
-        data: transactionsToCreate
-    });
-
+    // 4. Sucesso! Pede para o Next.js recarregar a tela para atualizar o saldo
     revalidatePath("/");
     revalidatePath("/gastos");
 

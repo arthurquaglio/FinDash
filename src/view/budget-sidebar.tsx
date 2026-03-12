@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Target, Save, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/view/ui/button";
+import { Input } from "@/view/ui/input";
 import {
     Sheet,
     SheetContent,
@@ -11,7 +11,7 @@ import {
     SheetHeader,
     SheetTitle,
     SheetTrigger,
-} from "@/components/ui/sheet";
+} from "@/view/ui/sheet";
 import { upsertBudget } from "@/app/actions";
 
 interface BudgetSidebarProps {

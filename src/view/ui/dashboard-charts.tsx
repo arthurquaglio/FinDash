@@ -1,7 +1,7 @@
-// src/components/ui/dashboard-charts.tsx
+// src/view/ui/dashboard-charts.tsx
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/view/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 export function DashboardCharts({ data }: { data: any[] }) {

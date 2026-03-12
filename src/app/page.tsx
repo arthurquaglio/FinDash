@@ -1,16 +1,16 @@
 // src/app/page.tsx
 import React from "react";
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/dados/prisma";
 import { LayoutDashboard, Wallet, TrendingUp, Trash2, Target } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { TransactionModal } from "@/components/ui/transaction-modal";
-import { DashboardCharts } from "@/components/ui/dashboard-charts";
-import { BudgetSidebar } from "@/components/budget-sidebar";
-import { GoalModal } from "@/components/ui/goal-modal";
+import { Card, CardContent, CardHeader, CardTitle } from "@/view/ui/card";
+import { Button } from "@/view/ui/button";
+import { Input } from "@/view/ui/input";
+import { TransactionModal } from "@/view/ui/transaction-modal";
+import { DashboardCharts } from "@/view/ui/dashboard-charts";
+import { BudgetSidebar } from "@/view/budget-sidebar";
+import { GoalModal } from "@/view/ui/goal-modal";
 import { cookies } from "next/headers";
-import { PeriodToggle } from "@/components/period-toggle";
+import { PeriodToggle } from "@/view/period-toggle";
 import { deleteBudget, deleteGoal, addMoneyToGoal } from "@/app/actions";
 
 export default async function FinanceDashboard({

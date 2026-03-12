@@ -20,7 +20,12 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@/view/*": ["./src/view/*"],
+      "@/negocios/*": ["./src/negocios/*"],
+      "@/dados/*": ["./src/dados/*"],
+      "@/entidades/*": ["./src/entidades/*"],
+      "@/utilitarios/*": ["./src/utilitarios/*"]
     }
   },
   "include": [

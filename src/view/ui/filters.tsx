@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { Input } from "@/components/ui/input";
+import { Input } from "@/view/ui/input";
 import { useDebouncedCallback } from "use-debounce";
 
 export function Filters({ categories }: { categories: any[] }) {

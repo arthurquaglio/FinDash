@@ -1,12 +1,12 @@
-// src/components/import-ofx.tsx
+// src/view/import-ofx.tsx
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { FileUp, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/view/ui/button";
 import { importReviewedTransactions } from "@/app/actions";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { identifyCategory } from "@/lib/categorizer";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/view/ui/dialog";
+import { identifyCategory } from "@/utilitarios/categorizer";
 
 interface ImportOFXProps {
     categories: any[];

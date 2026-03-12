@@ -1,4 +1,4 @@
-// src/components/period-toggle.tsx
+// src/view/period-toggle.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";

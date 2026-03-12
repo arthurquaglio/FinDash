@@ -1,8 +1,8 @@
 // src/app/layout.tsx
 import { TrendingUp } from "lucide-react";
-import { SidebarNav } from "@/components/sidebar-nav";
-import { ProfileSelector } from "@/components/profile-selector";
-import { prisma } from "@/lib/prisma";
+import { SidebarNav } from "@/view/sidebar-nav";
+import { ProfileSelector } from "@/view/profile-selector";
+import { prisma } from "@/dados/prisma";
 import { cookies } from "next/headers";
 import "./globals.css";
 import React from "react";

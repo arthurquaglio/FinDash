@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Trash2, Pencil } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button } from "@/view/ui/button";
 import { deleteTransaction, updateTransaction } from "@/app/actions";
 import {
     AlertDialog,
@@ -14,15 +14,15 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/view/ui/alert-dialog";
 import {
     Sheet,
     SheetContent,
     SheetHeader,
     SheetTitle,
     SheetTrigger,
-} from "@/components/ui/sheet";
-import { Input } from "@/components/ui/input";
+} from "@/view/ui/sheet";
+import { Input } from "@/view/ui/input";
 
 // NOVO: Adicionado bankAccounts e creditCards nas propriedades
 export function TransactionActions({ transaction, types, categories, bankAccounts = [], creditCards = [] }: any) {
