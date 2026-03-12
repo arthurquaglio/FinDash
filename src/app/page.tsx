@@ -11,7 +11,6 @@ import { GoalModal } from "@/view/ui/goal-modal";
 import { cookies } from "next/headers";
 import { PeriodToggle } from "@/view/period-toggle";
 import { deleteBudget, deleteGoal, addMoneyToGoal } from "@/app/actions";
-// MUDANÇA PRINCIPAL: A View importa os Negócios (BLL) e o Ícone do Banco, NÃO o Prisma!
 import { obterResumoFinanceiro } from "@/negocios/dashboardNegocios";
 import { BankIcon } from "@/view/bank-icon";
 
@@ -47,7 +46,6 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
       <div className="flex min-h-screen bg-zinc-950 text-zinc-50 font-sans">
         <main className="flex-1 p-8 overflow-y-auto">
 
-          //#region 2. HEADER E MENUS DE AÇÃO
           <header className="flex justify-between items-start mb-8">
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-zinc-100">Visão Geral</h1>
@@ -70,9 +68,8 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
           <div className="mb-6 md:hidden">
             <PeriodToggle />
           </div>
-          //#endregion
 
-          //#region 3. CARDS DE CONTAS BANCÁRIAS (A NOVA FEATURE)
+
           <div className="mb-8">
             <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-widest mb-4 flex items-center justify-between">
               Minhas Contas
@@ -102,9 +99,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
               </Card>
             </div>
           </div>
-          //#endregion
 
-          //#region 4. HIGHLIGHTS E ALERTAS (GASTOS E ORÇAMENTOS)
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
             <div className="p-4 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center gap-4">
               <div className="p-2.5 bg-red-500/10 rounded-lg text-red-500"><TrendingUp className="w-5 h-5"/></div>
@@ -128,9 +123,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
               </div>
             </div>
           </div>
-          //#endregion
 
-          //#region 5. GRÁFICOS E RESUMO DO PERÍODO
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <div className="lg:col-span-2">
               <Card className="bg-zinc-900/50 border-zinc-800 h-full flex flex-col justify-center p-4">
@@ -155,9 +148,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
               </Card>
             </div>
           </div>
-          //#endregion
 
-          //#region 6. CAIXINHAS (METAS FINANCEIRAS)
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
@@ -222,9 +213,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                 </Card>
             )}
           </div>
-          //#endregion
 
-          //#region 7. LIMITES DE ORÇAMENTO (PROGRESS BAR)
           {dados.orcamentosStatus.length > 0 && (
               <Card className="bg-zinc-900/50 border-zinc-800 mb-8">
                 <CardHeader><CardTitle className="text-sm font-semibold text-zinc-400 uppercase tracking-widest">Limites de Gastos</CardTitle></CardHeader>
@@ -260,9 +249,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
                 </CardContent>
               </Card>
           )}
-          //#endregion
 
-          //#region 8. ALERTAS FUTUROS E HISTÓRICO
           <Card className="bg-zinc-900/50 border-zinc-800 mb-8 overflow-hidden relative">
             <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-orange-500/50 to-orange-400/20" />
             <CardHeader>
@@ -331,7 +318,7 @@ export default async function FinanceDashboard({ searchParams }: { searchParams:
               </div>
             </CardContent>
           </Card>
-          //#endregion
+
         </main>
       </div>
   );
